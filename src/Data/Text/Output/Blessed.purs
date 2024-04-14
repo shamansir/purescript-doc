@@ -115,6 +115,10 @@ instance Renderer Blessed where
             wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout blessed tag <> D.bracket "{/" (D.text cmd) "}"
 
 
-render :: Tag -> String
-render = layout blessed >>> D.render { break : D.Space, indent : D.Empty }
+singleLine :: Tag -> String
+singleLine = layout blessed >>> D.render { break : D.Space, indent : D.Empty }
 -- render = S.perform blessed { break : D.Space, indent : D.Empty }
+
+
+multiLine :: Tag -> String
+multiLine = layout blessed >>> D.render { break : D.All, indent : D.Spaces 2 }
