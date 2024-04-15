@@ -69,6 +69,7 @@ data Format
     | Code ProgrammingLanguage
     | Define Term
     | Comment
+    | FixedWidth
     | Sub
     | Sup
     | Fg (Either String Color)
@@ -335,6 +336,7 @@ instance Show Format where
         Invisible -> "invisible"
         Strikethrough -> "striked"
         Monospaced -> "mono"
+        FixedWidth -> "fixed"
         Quote -> "quote"
         Sub -> "sub"
         Sup -> "sup"
