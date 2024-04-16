@@ -8,7 +8,11 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.String (CodePoint)
 import Data.Map (Map)
 import Data.Date (Day, Weekday)
+import Data.Time (Time)
 -- import Data.Time (TimeOfDay)
+
+
+-- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
 
 data OrgFile =
@@ -20,7 +24,7 @@ data OrgFile =
 
 data OrgDoc =
     OrgDoc
-        { blocks :: Array Block
+        { zeroth :: Array Block
         , sections :: Array Section
         }
 
@@ -57,13 +61,10 @@ data OrgDateTime =
         }
 
 
-data TimeOfDay
-
-
 data OrgTime =
     OrgTime
-        { start :: TimeOfDay
-        , end :: Maybe TimeOfDay
+        { start :: Time
+        , end :: Maybe Time
         }
 
 
