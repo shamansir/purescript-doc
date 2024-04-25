@@ -20,6 +20,15 @@ pvalue = PropValue :: String -> PropValue
 prop = Property :: PropName -> PropValue -> Property
 
 
+empty :: OrgFile
+empty = f emptyDoc
+
+
+emptyDoc :: OrgDoc
+emptyDoc =
+    OrgDoc { zeroth : [], sections : [] }
+
+
 f :: OrgDoc -> OrgFile
 f = f_ []
 
@@ -120,5 +129,74 @@ sec level heading doc =
             , timestamp : Nothing
             }
         , props : Map.empty
+        , drawers : []
         , doc
         }
+
+
+set :: Todo -> Section -> Section
+set _ = identity -- TODO
+
+
+priority :: Priority -> Section -> Section
+priority _ = identity -- TODO
+
+
+low :: Section -> Section
+low = identity -- TODO
+
+
+hi :: Section -> Section
+hi = identity -- TODO
+
+
+cookie :: Cookie -> Section -> Section
+cookie _ = identity -- TODO
+
+
+tag :: String -> Section -> Section
+tag _ = identity -- TODO
+
+
+untag :: String -> Section -> Section
+untag _ = identity -- TODO
+
+
+level :: Int -> Section -> Section
+level _ = identity -- TODO
+
+
+inc :: Section -> Section
+inc = identity -- TODO
+
+
+dec :: Section -> Section
+dec = identity -- TODO
+
+
+close :: OrgDateTime -> Section -> Section
+close _ = identity -- TODO
+
+
+deadline :: OrgDateTime -> Section -> Section
+deadline _ = identity -- TODO
+
+
+schedule :: OrgDateTime -> Section -> Section
+schedule _ = identity -- TODO
+
+
+timestamp :: OrgDateTime -> Section -> Section
+timestamp _ = identity -- TODO
+
+
+wprop :: Property -> Section -> Section
+wprop _ = identity
+
+
+drawer :: Drawer -> Section -> Section
+drawer _ = identity
+
+
+note :: String -> Section -> Section
+note _ = identity -- LOGBOOK

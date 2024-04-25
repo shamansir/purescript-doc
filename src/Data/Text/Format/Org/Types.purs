@@ -36,6 +36,7 @@ data Block
     | List ListItems
     | Table (NonEmptyArray Row)
     | Paragraph (NonEmptyArray Words)
+    | JoinB Block Block
 
 
 data Words
@@ -49,6 +50,7 @@ data Words
     | Image URL
     | Punct CodePoint
     | Plain String
+    | JoinW Words Words
 
 
 data OrgDateTime =
@@ -98,6 +100,13 @@ data DelayMode
     | DelayAll
 
 
+data Drawer =
+    Drawer
+        { name :: String
+        , content :: NonEmptyArray Words
+        }
+
+
 data Section =
     Section
         { todo :: Maybe Todo
@@ -114,6 +123,7 @@ data Section =
             , timestamp :: Maybe OrgDateTime
             }
         , props :: Map String String
+        , drawers :: Array Drawer
         , doc :: OrgDoc
         }
 
@@ -133,6 +143,7 @@ data Priority
 data Cookie
     = Split
     | Percent
+    | Pie
 
 
 data Check
