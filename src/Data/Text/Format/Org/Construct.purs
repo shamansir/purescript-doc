@@ -5,6 +5,9 @@ import Prelude
 import Data.Maybe (Maybe(..))
 import Data.Map (empty) as Map
 import Data.Text.Format.Org.Types
+import Data.Text.Format.Org.Path (Path)
+import Data.Text.Format.Org.Path as P
+import Data.Tuple.Nested ((/\), type (/\))
 import Data.Array.NonEmpty as NEA
 
 
@@ -200,3 +203,19 @@ drawer _ = identity
 
 note :: String -> Section -> Section
 note _ = identity -- LOGBOOK
+
+
+addSection :: Path -> OrgFile -> Section -> Path /\ OrgFile
+addSection where_ file _ = P.empty /\ file
+
+
+addBlock :: Path -> OrgFile -> Block -> Path /\ OrgFile
+addBlock where_ file _ = P.empty /\ file
+
+
+addSection' :: OrgFile -> Section -> Path /\ OrgFile
+addSection' = addSection P.empty
+
+
+addBlock' :: OrgFile -> Block -> Path /\ OrgFile
+addBlock' = addBlock P.empty
