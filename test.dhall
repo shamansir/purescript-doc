@@ -1,7 +1,7 @@
 let conf = ./spago.dhall
 
 in conf // {
-  sources = conf.sources # [ "test/**/*.purs", "example/Hydra/Hydra/**/*.purs" ],
+  sources = conf.sources # [ "test/**/*.purs" ],
   dependencies =
     conf.dependencies #
     [ "spec"
@@ -10,5 +10,6 @@ in conf // {
     , "newtype"
     , "aff"
     , "lists"
+    , "ordered-collections"
     ]
 }

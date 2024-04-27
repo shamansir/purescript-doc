@@ -4,7 +4,7 @@ import Prelude
 
 import Data.FoldableWithIndex (foldlWithIndex)
 import Data.Tuple.Nested (type (/\), (/\))
-import Data.Text.Output.Blessed (render) as T
+import Data.Text.Output.Blessed (multiLine) as T
 import Data.Text.Format as F
 -- import Data.Text.Doc as D
 import Data.Text.Doc as D
@@ -168,7 +168,7 @@ spec = do
 
     helper
         { title : \idx (_ /\ expected) -> show idx <> " : " <> expected
-        , render : T.render
+        , render : T.multiLine
         }
         blessedSamples
 

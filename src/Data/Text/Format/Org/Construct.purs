@@ -4,6 +4,7 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Data.Map (empty) as Map
+import Data.Enum (class BoundedEnum)
 import Data.Text.Format.Org.Types
 import Data.Text.Format.Org.Path (Path)
 import Data.Text.Format.Org.Path as P
@@ -205,17 +206,25 @@ note :: String -> Section -> Section
 note _ = identity -- LOGBOOK
 
 
-addSection :: Path -> OrgFile -> Section -> Path /\ OrgFile
-addSection where_ file _ = P.empty /\ file
+findBlock :: forall a. BoundedEnum a => OrgFile -> Path a -> Maybe Block
+findBlock file path = Nothing
 
 
-addBlock :: Path -> OrgFile -> Block -> Path /\ OrgFile
-addBlock where_ file _ = P.empty /\ file
+findSection :: forall a. BoundedEnum a => OrgFile -> Path a -> Maybe Section
+findSection file path = Nothing
 
 
-addSection' :: OrgFile -> Section -> Path /\ OrgFile
-addSection' = addSection P.empty
+addSection :: forall a. Path a -> OrgFile -> Section -> Path a /\ OrgFile
+addSection where_ file _ = P.root /\ file
 
 
-addBlock' :: OrgFile -> Block -> Path /\ OrgFile
-addBlock' = addBlock P.empty
+addBlock :: forall a. Path a -> OrgFile -> Block -> Path a /\ OrgFile
+addBlock where_ file _ = P.root /\ file
+
+
+addSection' :: forall a. OrgFile -> Section -> Path a /\ OrgFile
+addSection' = addSection P.root
+
+
+addBlock' :: forall a. OrgFile -> Block -> Path a /\ OrgFile
+addBlock' = addBlock P.root

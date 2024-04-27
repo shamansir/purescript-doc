@@ -22,11 +22,12 @@ to generate this file without the comments in this block.
   , "formatters"
   , "maybe"
   , "newtype"
+  , "ordered-collections"
   , "prelude"
   , "strings"
   , "tuples"
   , "yoga-json"
   ]
 , packages = ./packages.dhall
-, sources = [ "src/**/*.purs", "test/**/*.purs" ]
+, sources = [ "src/**/*.purs" ]
 }
