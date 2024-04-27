@@ -1,1 +1,1 @@
-# purescript-text-output-unified
+# purescript-text-formatting
