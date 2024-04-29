@@ -11,9 +11,12 @@ import Test.Spec.Runner (runSpec)
 
 -- import Test.Nodes (spec) as Nodes
 import Test.Formatting (spec) as Formatting
+import Test.JsonSerialize (spec) as JsonSerialize
 
 
 main :: Effect Unit
 main = launchAff_ $ runSpec [consoleReporter] do
   describe "Formatting"
     Formatting.spec
+  describe "Serialization"
+    JsonSerialize.spec

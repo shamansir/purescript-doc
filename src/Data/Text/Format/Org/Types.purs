@@ -1,27 +1,21 @@
 module Data.Text.Format.Org.Types where
 
 import Prelude
--- import Prim hiding (Row)
--- import Prim (Row) as Prim
-import Prim.Row as R
 
-import Data.Maybe (Maybe(..))
-import Data.Either (Either(..))
+import Data.Maybe (Maybe)
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.String (CodePoint)
 import Data.Map (Map)
 import Data.Date (Day, Weekday)
 import Data.Time (Time)
 -- import Data.Time (TimeOfDay)
-import Data.Variant (Variant, class VariantMatchCases)
-import Data.Variant (match) as Variant
-import Control.Monad.Except (except)
+import Data.Variant (Variant)
 
-import Yoga.JSON (class ReadForeign, class ReadForeignVariant, readImpl, readVariantImpl)
-import Yoga.Json.Extra (NoParams(..), readMatchImpl)
+import Yoga.JSON (class ReadForeign, class WriteForeign, readImpl, writeImpl)
+import Yoga.Json.Extra (Case, readMatchImpl)
+import Yoga.Json.Extra (mark, matched) as Variant
 import Foreign (Foreign, F)
 import Type.Proxy (Proxy(..))
-import Prim.RowList (class RowToList, Cons, Nil, RowList)
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
@@ -191,41 +185,44 @@ newtype URL = URL String
 newtype Language = Language String
 
 
+{- ----- Show & Eq ----- -}
+
+
+instance Show Check where
+    show = case _ of
+        Check -> "check"
+        Uncheck -> "un-check"
+        Halfcheck -> "half-check"
+
+derive instance Eq Check
+
+
 {- ----- JSON ----- -}
 
 
 type CheckRow =
-    ( "check" :: NoParams
-    , "uncheck" :: NoParams
-    , "halfcheck" :: NoParams
+    ( "check" :: Case
+    , "uncheck" :: Case
+    , "halfcheck" :: Case
     )
-
-instance ReadForeign Check where
-    readImpl = readCheck
-
-
-{-
-readCheck :: Foreign -> F Check
-readCheck f =
-    (readImpl f :: F (Variant CheckRow))
-        >>= Variant.match
-            { check : \_ -> except $ Right Check
-            , uncheck : \_ -> except $ Right Uncheck
-            , halfcheck : \_ -> except $ Right Halfcheck
-            } :: F Check
--}
-
 
 
 readCheck :: Foreign -> F Check
 readCheck =
     readMatchImpl
         (Proxy :: _ CheckRow)
-        { check : \_ -> except $ Right Check
-        , uncheck : \_ -> except $ Right Uncheck
-        , halfcheck : \_ -> except $ Right Halfcheck
+        { check : Variant.matched Check
+        , uncheck : Variant.matched Uncheck
+        , halfcheck : Variant.matched Halfcheck
         }
 
 
--- instance WriteForeign Check where
---     writeImpl check = writeImpl (checkToVariant check)
+checkToVariant :: Check -> Variant CheckRow
+checkToVariant = case _ of
+    Check -> Variant.mark (Proxy :: _ "check")
+    Uncheck -> Variant.mark (Proxy :: _ "uncheck")
+    Halfcheck -> Variant.mark (Proxy :: _ "halfcheck")
+
+
+instance ReadForeign Check where readImpl = readCheck
+instance WriteForeign Check where writeImpl = writeImpl <<< checkToVariant

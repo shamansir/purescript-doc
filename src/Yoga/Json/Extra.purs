@@ -2,50 +2,61 @@ module Yoga.Json.Extra where
 
 import Prelude
 
-import Control.Alt ((<|>))
-import Control.Apply (lift2)
-import Control.Monad.Except (ExceptT(..), except, runExcept, runExceptT, throwError, withExcept)
-import Data.Array as Array
-import Data.Array.NonEmpty (NonEmptyArray, fromArray, toArray)
-import Data.Bifunctor (lmap)
-import Data.Either (Either(..), hush, note)
-import Data.Identity (Identity(..))
-import Data.List.NonEmpty (singleton)
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Nullable (Nullable, toMaybe, toNullable)
-import Data.Symbol (class IsSymbol, reflectSymbol)
-import Data.Traversable (sequence, traverse)
-import Data.TraversableWithIndex (traverseWithIndex)
-import Data.Tuple (Tuple(..))
-import Data.Variant (Variant, inj, on, class VariantMatchCases)
-import Data.Variant (match) as Variant
-import Effect.Exception (message, try)
-import Effect.Uncurried as EU
-import Effect.Unsafe (unsafePerformEffect)
-import Foreign (F, Foreign, ForeignError(..), MultipleErrors, fail, isNull, isUndefined, readArray, readBoolean, readChar, readInt, readNull, readNumber, readString, tagOf, unsafeFromForeign, unsafeToForeign)
-import Foreign.Index (readProp)
-import Foreign.Object (Object)
-import Foreign.Object as Object
-import Partial.Unsafe (unsafeCrashWith)
 import Prim.Row as Row
-import Prim.RowList (class RowToList, Cons, Nil, RowList)
-import Record (get)
-import Record.Builder (Builder)
-import Record.Builder as Builder
-import Type.Prelude (Proxy(..))
+import Prim.RowList (class RowToList, RowList) as RL
 
-import Yoga.JSON (class ReadForeign, readImpl)
-import Yoga.JSON (class ReadForeign, class ReadForeignVariant, readImpl, readVariantImpl)
+import Type.Proxy (Proxy)
+
+import Data.Either (Either(..), hush)
+import Data.Symbol (class IsSymbol)
+import Data.Variant (Variant, class VariantMatchCases)
+import Data.Variant (match, inj) as Variant
+
+import Control.Monad.Except (except)
+
+import Foreign (F, Foreign, fail, ForeignError(..))
+
+import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignVariant, readImpl, writeImpl)
 
 
-data NoParams = NoParams -- a.k.a. Unit
+data Case = Case -- a.k.a. Unit
 
 
-instance ReadForeign NoParams where
-    readImpl = const $ except $ Right NoParams
+instance ReadForeign Case where
+    readImpl f = (readImpl f :: F String) >>= (\str -> case str of
+        "." -> except $ Right Case
+        _ -> fail $ ForeignError "No match")
 
 
-readMatchImpl :: forall row rec a x b c. ReadForeignVariant x row => RowToList row x => RowToList rec b => VariantMatchCases b c (F a) => Row.Union c () row => Proxy row -> Record rec -> Foreign -> F a
+instance WriteForeign Case where
+    writeImpl = const $ writeImpl "."
+
+
+readMatchImpl
+    :: forall
+        (row :: Row Type)
+        (rec :: Row Type)
+        (a :: Type)
+        (rl :: RL.RowList Type)
+        (rl1 :: RL.RowList Type)
+        (rl2 :: Row Type)
+     . ReadForeignVariant rl row
+    => RL.RowToList row rl
+    => RL.RowToList rec rl1
+    => VariantMatchCases rl1 rl2 (F a)
+    => Row.Union rl2 () row
+    => Proxy row -> Record rec -> Foreign -> F a
 readMatchImpl _ rec f =
     (readImpl f :: F (Variant row))
         >>= Variant.match rec :: F a
+
+
+mark
+    :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type)
+     . Row.Cons label Case row' row ⇒ IsSymbol label
+    => Proxy label → Variant row
+mark = flip Variant.inj Case
+
+
+matched :: forall a. a -> (Case -> F a)
+matched = const <<< except <<< Right

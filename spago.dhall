@@ -19,14 +19,17 @@ to generate this file without the comments in this block.
   , "effect"
   , "either"
   , "enums"
+  , "foreign"
   , "formatters"
   , "maybe"
   , "newtype"
   , "ordered-collections"
   , "prelude"
   , "strings"
+  , "transformers"
   , "tuples"
   , "unfoldable"
+  , "variant"
   , "yoga-json"
   ]
 , packages = ./packages.dhall
