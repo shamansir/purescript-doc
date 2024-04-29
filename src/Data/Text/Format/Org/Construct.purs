@@ -8,7 +8,11 @@ import Data.Enum (class BoundedEnum)
 import Data.Text.Format.Org.Types
 import Data.Text.Format.Org.Path (Path)
 import Data.Text.Format.Org.Path as P
+import Data.Tuple (curry, uncurry)
+import Data.Foldable (class Foldable)
+import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
+import Data.Array (toUnfoldable) as Array
 import Data.Array.NonEmpty as NEA
 
 
@@ -206,6 +210,49 @@ note :: String -> Section -> Section
 note _ = identity -- LOGBOOK
 
 
+{-
+data At
+    = AtMeta String String
+    | AtBlock Block
+    | AtWords Words
+    | AtSection Section
+    | AtHeading Words
+    | AtProperty String String
+    | AtTag String String
+    | AtDrawer Drawer
+    | AtPriority Priority
+    | AtPlanning -- TODO
+
+
+type Cursor a =
+    { path :: Path a
+    , parent :: Maybe At
+    , current :: At
+    }
+
+
+mapTraverse :: forall a x z. (x -> x -> z) -> (Cursor a -> x) -> x -> OrgFile -> Array z
+mapTraverse = ?wh
+
+
+mapTraverse' :: forall a x z. (x -> x -> z) -> (Cursor a -> x) -> x -> OrgDoc -> Array z
+mapTraverse' = ?wh
+-}
+
+-- data At :: forall k. (k -> Type) -> k -> Type
+data At :: (Type -> Type) -> Type -> Type
+data At f a
+    = AtBlock Block
+    | AtSection Section (f a)
+
+
+-- traverse ∷ ∀ (x ∷ Type) (b ∷ Type) (a ∷ x) (f ∷ x -> Type). (Array b → Array b → f a) → (At f a → b) → OrgDoc → f a
+traverse :: forall b a (f ∷ Type -> Type). Unfoldable f => (f b → f b → f a) -> (At f a -> b) -> OrgDoc -> f a
+traverse join f (OrgDoc doc) =
+    join (Array.toUnfoldable $ map (f <<< AtBlock) doc.zeroth) (Array.toUnfoldable $ map (f <<< uncurry AtSection <<< deepF) doc.sections)
+    where deepF (Section sec) = Section sec /\ traverse join f sec.doc
+
+
 findBlock :: forall a. BoundedEnum a => OrgFile -> Path a -> Maybe Block
 findBlock file path = Nothing
 
@@ -215,7 +262,9 @@ findSection file path = Nothing
 
 
 addSection :: forall a. Path a -> OrgFile -> Section -> Path a /\ OrgFile
-addSection where_ file _ = P.root /\ file
+addSection where_ file _ =
+    {- case where_ of
+        Root -> -} P.root /\ file
 
 
 addBlock :: forall a. Path a -> OrgFile -> Block -> Path a /\ OrgFile

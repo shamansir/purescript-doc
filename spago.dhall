@@ -10,7 +10,7 @@ When creating a new Spago project, you can use
 `spago init --no-comments` or `spago init -C`
 to generate this file without the comments in this block.
 -}
-{ name = "text-output-unified"
+{ name = "text-formatting"
 , dependencies =
   [ "arrays"
   , "colors"
@@ -26,6 +26,7 @@ to generate this file without the comments in this block.
   , "prelude"
   , "strings"
   , "tuples"
+  , "unfoldable"
   , "yoga-json"
   ]
 , packages = ./packages.dhall

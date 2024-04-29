@@ -1,16 +1,27 @@
 module Data.Text.Format.Org.Types where
 
 import Prelude
-import Prim hiding (Row)
+-- import Prim hiding (Row)
+-- import Prim (Row) as Prim
+import Prim.Row as R
 
 import Data.Maybe (Maybe(..))
+import Data.Either (Either(..))
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.String (CodePoint)
 import Data.Map (Map)
 import Data.Date (Day, Weekday)
 import Data.Time (Time)
 -- import Data.Time (TimeOfDay)
+import Data.Variant (Variant, class VariantMatchCases)
+import Data.Variant (match) as Variant
+import Control.Monad.Except (except)
 
+import Yoga.JSON (class ReadForeign, class ReadForeignVariant, readImpl, readVariantImpl)
+import Yoga.Json.Extra (NoParams(..), readMatchImpl)
+import Foreign (Foreign, F)
+import Type.Proxy (Proxy(..))
+import Prim.RowList (class RowToList, Cons, Nil, RowList)
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
@@ -34,7 +45,7 @@ data Block
     | Example String
     | Code (Maybe Language) String
     | List ListItems
-    | Table (NonEmptyArray Row)
+    | Table (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
     | JoinB Block Block
 
@@ -50,6 +61,9 @@ data Words
     | Image URL
     | Punct CodePoint
     | Plain String
+    -- | Break
+    -- | Space
+    -- | Indent Int
     | JoinW Words Words
 
 
@@ -159,10 +173,10 @@ data ListType
     | Alphed
 
 
-data Row = Break | Row (NonEmptyArray Column)
+data TableRow = Break | Row (NonEmptyArray TableColumn)
 
 
-data Column = Empty | Column (NonEmptyArray Words)
+data TableColumn = Empty | Column (NonEmptyArray Words)
 
 
 data ListItems = ListItems ListType (NonEmptyArray Item)
@@ -175,3 +189,43 @@ newtype URL = URL String
 
 
 newtype Language = Language String
+
+
+{- ----- JSON ----- -}
+
+
+type CheckRow =
+    ( "check" :: NoParams
+    , "uncheck" :: NoParams
+    , "halfcheck" :: NoParams
+    )
+
+instance ReadForeign Check where
+    readImpl = readCheck
+
+
+{-
+readCheck :: Foreign -> F Check
+readCheck f =
+    (readImpl f :: F (Variant CheckRow))
+        >>= Variant.match
+            { check : \_ -> except $ Right Check
+            , uncheck : \_ -> except $ Right Uncheck
+            , halfcheck : \_ -> except $ Right Halfcheck
+            } :: F Check
+-}
+
+
+
+readCheck :: Foreign -> F Check
+readCheck =
+    readMatchImpl
+        (Proxy :: _ CheckRow)
+        { check : \_ -> except $ Right Check
+        , uncheck : \_ -> except $ Right Uncheck
+        , halfcheck : \_ -> except $ Right Halfcheck
+        }
+
+
+-- instance WriteForeign Check where
+--     writeImpl check = writeImpl (checkToVariant check)
