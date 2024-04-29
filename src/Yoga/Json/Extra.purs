@@ -7,10 +7,12 @@ import Prim.RowList (class RowToList, RowList) as RL
 
 import Type.Proxy (Proxy)
 
-import Data.Either (Either(..), hush)
+import Data.Either (Either(..))
 import Data.Symbol (class IsSymbol)
 import Data.Variant (Variant, class VariantMatchCases)
 import Data.Variant (match, inj) as Variant
+import Data.Tuple (curry, uncurry)
+import Data.Tuple.Nested ((/\), type (/\))
 
 import Control.Monad.Except (except)
 
@@ -20,6 +22,8 @@ import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignVarian
 
 
 data Case = Case -- a.k.a. Unit
+data Case1 a = Case1 a
+data Case2 a b = Case2 a b
 
 
 instance ReadForeign Case where
@@ -28,8 +32,24 @@ instance ReadForeign Case where
         _ -> fail $ ForeignError "No match")
 
 
+instance ReadForeign a => ReadForeign (Case1 a) where
+    readImpl f = (readImpl f :: F a) <#> Case1
+
+
+instance (ReadForeign a, ReadForeign b) => ReadForeign (Case2 a b) where
+    readImpl f = (readImpl f :: F { a :: a, b :: b }) <#> \r -> Case2 r.a r.b
+
+
 instance WriteForeign Case where
     writeImpl = const $ writeImpl "."
+
+
+instance WriteForeign a => WriteForeign (Case1 a) where
+    writeImpl (Case1 a) = writeImpl a
+
+
+instance (WriteForeign a, WriteForeign b) => WriteForeign (Case2 a b) where
+    writeImpl (Case2 a b) = writeImpl { a, b }
 
 
 readMatchImpl
@@ -59,4 +79,24 @@ mark = flip Variant.inj Case
 
 
 matched :: forall a. a -> (Case -> F a)
-matched = const <<< except <<< Right
+matched = todo
+
+
+uncase1 :: forall a. Case1 a -> a
+uncase1 (Case1 a) = a
+
+
+uncase2 :: forall a b . Case2 a b -> a /\ b
+uncase2 (Case2 a b) = a /\ b
+
+
+match1 :: forall a x. (a -> x) -> (Case1 a -> F x)
+match1 f = except <<< Right <<< f <<< uncase1
+
+
+match2 :: forall a b x. (a -> b -> x) -> (Case2 a b -> F x)
+match2 f = except <<< Right <<< uncurry f <<< uncase2
+
+
+todo :: forall a x. a -> (x -> F a)
+todo = const <<< except <<< Right

@@ -2,20 +2,25 @@ module Data.Text.Format.Org.Types where
 
 import Prelude
 
-import Data.Maybe (Maybe)
+import Foreign (Foreign, F)
+
+import Type.Proxy (Proxy(..))
+
+import Data.Maybe (Maybe, fromMaybe)
 import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NEA
 import Data.String (CodePoint)
 import Data.Map (Map)
 import Data.Date (Day, Weekday)
 import Data.Time (Time)
 -- import Data.Time (TimeOfDay)
 import Data.Variant (Variant)
+import Data.Tuple.Nested ((/\), type (/\))
+import Data.String.CodePoints (codePointFromChar)
 
 import Yoga.JSON (class ReadForeign, class WriteForeign, readImpl, writeImpl)
-import Yoga.Json.Extra (Case, readMatchImpl)
-import Yoga.Json.Extra (mark, matched) as Variant
-import Foreign (Foreign, F)
-import Type.Proxy (Proxy(..))
+import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
+import Yoga.Json.Extra (mark, matched, match1, match2, todo) as Variant
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
@@ -41,7 +46,7 @@ data Block
     | List ListItems
     | Table (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
-    | JoinB Block Block
+    -- | JoinB Block Block
 
 
 data Words
@@ -55,7 +60,8 @@ data Words
     | Image URL
     | Punct CodePoint
     | Plain String
-    -- | Break
+    | Markup String
+    -- | BreakW
     -- | Space
     -- | Indent Int
     | JoinW Words Words
@@ -201,9 +207,9 @@ derive instance Eq Check
 
 
 type CheckRow =
-    ( "check" :: Case
-    , "uncheck" :: Case
-    , "halfcheck" :: Case
+    ( check :: Case
+    , uncheck :: Case
+    , halfcheck :: Case
     )
 
 
@@ -226,3 +232,74 @@ checkToVariant = case _ of
 
 instance ReadForeign Check where readImpl = readCheck
 instance WriteForeign Check where writeImpl = writeImpl <<< checkToVariant
+
+
+instance ReadForeign Language where readImpl f = (readImpl f :: F String) <#> Language
+
+
+instance ReadForeign URL where readImpl f = (readImpl f :: F String) <#> URL
+
+
+type BlockRow =
+    ( quote :: Case1 String
+    , example :: Case1 String
+    , code :: Case2 (Maybe Language) String
+    -- , list :: ListItems
+    -- , table :: Array TableRow
+    , paragraph :: Case1 (Array Words)
+    )
+
+
+toNEA :: forall a. a -> Array a -> NonEmptyArray a
+toNEA a = NEA.fromArray >>> fromMaybe (NEA.singleton a)
+
+
+readBlock :: Foreign -> F Block
+readBlock =
+    readMatchImpl
+        (Proxy :: _ BlockRow)
+        { quote : Variant.match1 Quote
+        , example : Variant.match1 Example
+        , code : Variant.match2 Code
+        -- , list : ?wh -- Variant.todo $ Quote ""
+        -- , table : ?wh -- Variant.todo $ Quote ""
+        , paragraph : Variant.match1 $ Paragraph <<< toNEA (Plain "??")
+        }
+
+
+type WordsRow =
+    ( bold :: Case1 String
+    , italic :: Case1 String
+    , highlight :: Case1 String
+    , underline :: Case1 String
+    , verbatim :: Case1 String
+    , strike :: Case1 String
+    , link :: Case2 URL (Maybe String)
+    , image :: Case1 URL
+    , punct :: Case1 Char
+    , plain :: Case1 String
+    , markup :: Case1 String
+    -- , join :: Words /\ Words
+    )
+
+
+readWords :: Foreign -> F Words
+readWords =
+    readMatchImpl
+        (Proxy :: _ WordsRow)
+        { bold : Variant.match1 Bold
+        , italic : Variant.match1 Italic
+        , highlight : Variant.match1 Highlight
+        , underline : Variant.match1 Underline
+        , verbatim : Variant.match1 Verbatim
+        , link : Variant.match2 Link
+        , image : Variant.match1 Image
+        , punct : Variant.match1 $ Punct <<< codePointFromChar
+        , strike : Variant.match1 Strike
+        , plain : Variant.match1 Plain
+        , markup : Variant.match1 Markup
+        -- , join : Variant.match2 JoinW
+        }
+
+
+instance ReadForeign Words where readImpl = readWords
