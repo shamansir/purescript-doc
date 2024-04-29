@@ -20,7 +20,7 @@ import Data.String.CodePoints (codePointFromChar)
 
 import Yoga.JSON (class ReadForeign, class WriteForeign, readImpl, writeImpl)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
-import Yoga.Json.Extra (mark, matched, match1, match2, todo) as Variant
+import Yoga.Json.Extra (mark, matched, match1, match2, select1, select2, todo) as Variant
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
@@ -267,6 +267,16 @@ readBlock =
         }
 
 
+blockToVariant :: Block -> Variant BlockRow
+blockToVariant = case _ of
+    Quote q ->  Variant.select1 (Proxy :: _ "quote") q
+    Example ex ->  Variant.select1 (Proxy :: _ "example") ex
+    Code mbLang value -> Variant.select2 (Proxy :: _ "code") mbLang value
+    Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ NEA.toArray words
+    List _ -> Variant.select1 (Proxy :: _ "quote") "QQQ" -- FIXME
+    Table _ -> Variant.select1 (Proxy :: _ "quote") "QQQ" -- FIXME
+
+
 type WordsRow =
     ( bold :: Case1 String
     , italic :: Case1 String
@@ -300,6 +310,22 @@ readWords =
         , markup : Variant.match1 Markup
         -- , join : Variant.match2 JoinW
         }
+
+
+wordsToVariant :: Words -> Variant WordsRow
+wordsToVariant = case _ of
+    Bold b -> Variant.select1 (Proxy :: _ "bold") b
+    Italic i -> Variant.select1 (Proxy :: _ "italic") i
+    Highlight hl -> Variant.select1 (Proxy :: _ "highlight") hl
+    Underline ul -> Variant.select1 (Proxy :: _ "underline") ul
+    Verbatim v -> Variant.select1 (Proxy :: _ "verbatim") v
+    Link url mbStr -> Variant.select2 (Proxy :: _ "link") url mbStr
+    Image url -> Variant.select1 (Proxy :: _ "image") url
+    Punct _ -> Variant.select1 (Proxy :: _ "punct") $ ':' -- FIXME
+    Strike s -> Variant.select1 (Proxy :: _ "strike") s
+    Plain p -> Variant.select1 (Proxy :: _ "plain") p
+    Markup mup -> Variant.select1 (Proxy :: _ "markup") mup
+    JoinW wA wB -> Variant.select1 (Proxy :: _ "bold") "JOIN" -- FIXME
 
 
 instance ReadForeign Words where readImpl = readWords

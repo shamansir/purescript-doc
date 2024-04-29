@@ -78,6 +78,18 @@ mark
 mark = flip Variant.inj Case
 
 
+select1 :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type) a
+     . Row.Cons label (Case1 a) row' row ⇒ IsSymbol label
+    => Proxy label → a -> Variant row
+select1 label = Variant.inj label <<< Case1
+
+
+select2 :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type) a b
+     . Row.Cons label (Case2 a b) row' row ⇒ IsSymbol label
+    => Proxy label → a -> b -> Variant row
+select2 label a b = Variant.inj label $ Case2 a b
+
+
 matched :: forall a. a -> (Case -> F a)
 matched = todo
 
