@@ -17,6 +17,7 @@ import Data.Time (Time)
 import Data.Variant (Variant)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String.CodePoints (codePointFromChar)
+import Data.Newtype (class Newtype, wrap, unwrap)
 
 import Yoga.JSON (class ReadForeign, class WriteForeign, readImpl, writeImpl)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
@@ -32,7 +33,7 @@ data OrgFile =
         }
 
 
-data OrgDoc =
+newtype OrgDoc =
     OrgDoc
         { zeroth :: Array Block
         , sections :: Array Section
@@ -67,7 +68,7 @@ data Words
     | JoinW Words Words
 
 
-data OrgDateTime =
+newtype OrgDateTime =
     OrgDateTime
         { day :: Day
         , dayOfWeek :: Weekday
@@ -77,14 +78,14 @@ data OrgDateTime =
         }
 
 
-data OrgTime =
+newtype OrgTime =
     OrgTime
         { start :: Time
         , end :: Maybe Time
         }
 
 
-data Repeater =
+newtype Repeater =
     Repeater
         { mode :: RepeaterMode
         , value :: Int
@@ -101,7 +102,7 @@ data RepeaterMode
 data Interval = Hour | Day | Week | Month | Year
 
 
-data Delay =
+newtype Delay =
     Delay
         { mode :: DelayMode
         , value :: Int
@@ -114,14 +115,14 @@ data DelayMode
     | DelayAll
 
 
-data Drawer =
+newtype Drawer =
     Drawer
         { name :: String
         , content :: NonEmptyArray Words
         }
 
 
-data Section =
+newtype Section =
     Section
         { todo :: Maybe Todo
         , priority :: Maybe Priority
@@ -191,6 +192,18 @@ newtype URL = URL String
 newtype Language = Language String
 
 
+{- ----- Newtype ------- -}
+
+derive instance Newtype URL _
+derive instance Newtype Language _
+derive instance Newtype Section _
+derive instance Newtype OrgDoc _
+derive instance Newtype Drawer _
+derive instance Newtype OrgDateTime _
+derive instance Newtype OrgTime _
+derive instance Newtype Repeater _
+derive instance Newtype Delay _
+
 {- ----- Show & Eq ----- -}
 
 
@@ -234,10 +247,12 @@ instance ReadForeign Check where readImpl = readCheck
 instance WriteForeign Check where writeImpl = writeImpl <<< checkToVariant
 
 
-instance ReadForeign Language where readImpl f = (readImpl f :: F String) <#> Language
+instance ReadForeign Language where readImpl f = (readImpl f :: F String) <#> wrap
+instance WriteForeign Language where writeImpl = unwrap >>> writeImpl
 
 
-instance ReadForeign URL where readImpl f = (readImpl f :: F String) <#> URL
+instance ReadForeign URL where readImpl f = (readImpl f :: F String) <#> wrap
+instance WriteForeign URL where writeImpl = unwrap >>> writeImpl
 
 
 type BlockRow =
@@ -329,3 +344,230 @@ wordsToVariant = case _ of
 
 
 instance ReadForeign Words where readImpl = readWords
+instance WriteForeign Words where writeImpl = writeImpl <<< wordsToVariant
+
+
+type CookieRow =
+    ( split :: Case
+    , percent :: Case
+    , pie :: Case
+    )
+
+
+readCookie :: Foreign -> F Cookie
+readCookie =
+    readMatchImpl
+        (Proxy :: _ CookieRow)
+        { split : Variant.matched Split
+        , percent : Variant.matched Percent
+        , pie : Variant.matched Pie
+        }
+
+
+cookieToVariant :: Cookie -> Variant CookieRow
+cookieToVariant = case _ of
+    Split -> Variant.mark (Proxy :: _ "split")
+    Percent -> Variant.mark (Proxy :: _ "percent")
+    Pie -> Variant.mark (Proxy :: _ "pie")
+
+
+instance ReadForeign Cookie where readImpl = readCookie
+instance WriteForeign Cookie where writeImpl = writeImpl <<< cookieToVariant
+
+
+type PriotityRow =
+    ( alpha :: Case1 Char
+    , num :: Case1 Int
+    )
+
+
+readPriority :: Foreign -> F Priority
+readPriority =
+    readMatchImpl
+        (Proxy :: _ PriotityRow)
+        { alpha : Variant.match1 Alpha
+        , num : Variant.match1 Num
+        }
+
+
+priorityToVariant :: Priority -> Variant PriotityRow
+priorityToVariant = case _ of
+    Alpha a -> Variant.select1 (Proxy :: _ "alpha") a
+    Num n -> Variant.select1 (Proxy :: _ "num") n
+
+
+instance ReadForeign Priority where readImpl = readPriority
+instance WriteForeign Priority where writeImpl = writeImpl <<< priorityToVariant
+
+
+type TodoRow =
+    ( todo :: Case
+    , doing :: Case
+    , done :: Case
+    , custom :: Case1 String
+    )
+
+
+readTodo :: Foreign -> F Todo
+readTodo =
+    readMatchImpl
+        (Proxy :: _ TodoRow)
+        { todo : Variant.matched TODO
+        , doing : Variant.matched DOING
+        , done : Variant.matched DONE
+        , custom : Variant.match1 Custom
+        }
+
+
+todoToVariant :: Todo -> Variant TodoRow
+todoToVariant = case _ of
+    TODO -> Variant.mark (Proxy :: _ "todo")
+    DOING -> Variant.mark (Proxy :: _ "doing")
+    DONE -> Variant.mark (Proxy :: _ "done")
+    Custom s -> Variant.select1 (Proxy :: _ "custom") s
+
+
+instance ReadForeign Todo where readImpl = readTodo
+instance WriteForeign Todo where writeImpl = writeImpl <<< todoToVariant
+
+
+type ListTypeRow =
+    ( bulleted :: Case
+    , plussed :: Case
+    , numbered :: Case
+    , alphed :: Case
+    )
+
+
+readListType :: Foreign -> F ListType
+readListType =
+    readMatchImpl
+        (Proxy :: _ ListTypeRow)
+        { bulleted : Variant.matched Bulleted
+        , plussed : Variant.matched Plussed
+        , numbered : Variant.matched Numbered
+        , alphed : Variant.matched Alphed
+        }
+
+
+listTypeToVariant :: ListType -> Variant ListTypeRow
+listTypeToVariant = case _ of
+    Bulleted -> Variant.mark (Proxy :: _ "bulleted")
+    Plussed -> Variant.mark (Proxy :: _ "plussed")
+    Numbered -> Variant.mark (Proxy :: _ "numbered")
+    Alphed -> Variant.mark (Proxy :: _ "alphed")
+
+
+instance ReadForeign ListType where readImpl = readListType
+instance WriteForeign ListType where writeImpl = writeImpl <<< listTypeToVariant
+
+
+type IntervalRow =
+    ( hour :: Case
+    , day :: Case
+    , week :: Case
+    , month :: Case
+    , year :: Case
+    )
+
+
+readInterval :: Foreign -> F Interval
+readInterval =
+    readMatchImpl
+        (Proxy :: _ IntervalRow)
+        { hour : Variant.matched Hour
+        , day : Variant.matched Day
+        , week : Variant.matched Week
+        , month : Variant.matched Month
+        , year : Variant.matched Year
+        }
+
+
+intervalToVariant :: Interval -> Variant IntervalRow
+intervalToVariant = case _ of
+    Hour  -> Variant.mark (Proxy :: _ "hour")
+    Day   -> Variant.mark (Proxy :: _ "day")
+    Week  -> Variant.mark (Proxy :: _ "week")
+    Month -> Variant.mark (Proxy :: _ "month")
+    Year  -> Variant.mark (Proxy :: _ "year")
+
+
+instance ReadForeign Interval where readImpl = readInterval
+instance WriteForeign Interval where writeImpl = writeImpl <<< intervalToVariant
+
+
+type RepeaterModeRow =
+    ( single :: Case
+    , jump :: Case
+    , fromToday :: Case
+    )
+
+
+readRepeaterMode :: Foreign -> F RepeaterMode
+readRepeaterMode =
+    readMatchImpl
+        (Proxy :: _ RepeaterModeRow)
+        { single : Variant.matched Single
+        , jump : Variant.matched Jump
+        , fromToday : Variant.matched FromToday
+        }
+
+
+repeaterModeToVariant :: RepeaterMode -> Variant RepeaterModeRow
+repeaterModeToVariant = case _ of
+    Single    -> Variant.mark (Proxy :: _ "single")
+    Jump      -> Variant.mark (Proxy :: _ "jump")
+    FromToday -> Variant.mark (Proxy :: _ "fromToday")
+
+
+instance ReadForeign RepeaterMode where readImpl = readRepeaterMode
+instance WriteForeign RepeaterMode where writeImpl = writeImpl <<< repeaterModeToVariant
+
+
+type DelayModeRow =
+    ( one :: Case
+    , all :: Case
+    )
+
+
+readDelayMode :: Foreign -> F DelayMode
+readDelayMode =
+    readMatchImpl
+        (Proxy :: _ DelayModeRow)
+        { one : Variant.matched DelayOne
+        , all : Variant.matched DelayAll
+        }
+
+
+delayModeToVariant :: DelayMode -> Variant DelayModeRow
+delayModeToVariant = case _ of
+    DelayOne -> Variant.mark (Proxy :: _ "one")
+    DelayAll -> Variant.mark (Proxy :: _ "all")
+
+
+instance ReadForeign DelayMode where readImpl = readDelayMode
+instance WriteForeign DelayMode where writeImpl = writeImpl <<< delayModeToVariant
+
+
+instance ReadForeign Drawer where readImpl f = readImpl f <#> wrap
+instance WriteForeign Drawer where writeImpl = unwrap >>> writeImpl
+
+
+-- instance ReadForeign OrgDateTime where readImpl f = readImpl f <#> wrap
+-- instance WriteForeign OrgDateTime where writeImpl = unwrap >>> writeImpl
+
+
+-- instance ReadForeign OrgTime where readImpl f = readImpl f <#> wrap
+-- instance WriteForeign OrgTime where writeImpl = unwrap >>> writeImpl
+
+
+instance ReadForeign Repeater where readImpl f = readImpl f <#> wrap
+instance WriteForeign Repeater where writeImpl = unwrap >>> writeImpl
+
+
+-- instance ReadForeign OrgDoc where readImpl f = readImpl f <#> wrap
+-- instance WriteForeign OrgDoc where writeImpl = unwrap >>> writeImpl
+
+
+-- instance ReadForeign Section where readImpl f = readImpl f <#> wrap
+-- instance WriteForeign Section where writeImpl = unwrap >>> writeImpl
