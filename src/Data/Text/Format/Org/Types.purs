@@ -3,6 +3,7 @@ module Data.Text.Format.Org.Types where
 import Prelude
 
 import Foreign (Foreign, F)
+import Prim.RowList as RL
 
 import Type.Proxy (Proxy(..))
 
@@ -12,14 +13,17 @@ import Data.Array.NonEmpty as NEA
 import Data.String (CodePoint)
 import Data.Map (Map)
 import Data.Date (Day, Weekday)
-import Data.Time (Time)
+import Data.Time (Time(..))
+import Data.Time as Time
+import Data.Enum (fromEnum, toEnum)
 -- import Data.Time (TimeOfDay)
 import Data.Variant (Variant)
+import Data.Variant (match) as Variant
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String.CodePoints (codePointFromChar)
 import Data.Newtype (class Newtype, wrap, unwrap)
 
-import Yoga.JSON (class ReadForeign, class WriteForeign, readImpl, writeImpl)
+import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields, class WriteForeignFields, class ReadForeignVariant, class WriteForeignVariant, readImpl, writeImpl)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
 import Yoga.Json.Extra (mark, matched, match1, match2, select1, select2, todo) as Variant
 
@@ -72,14 +76,14 @@ newtype OrgDateTime =
     OrgDateTime
         { day :: Day
         , dayOfWeek :: Weekday
-        , time :: Maybe OrgTime
+        , time :: Maybe OrgTimeRange
         , repeat :: Maybe Repeater
         , delay :: Maybe Delay
         }
 
 
-newtype OrgTime =
-    OrgTime
+newtype OrgTimeRange =
+    OrgTimeRange
         { start :: Time
         , end :: Maybe Time
         }
@@ -122,6 +126,15 @@ newtype Drawer =
         }
 
 
+newtype Planning =
+    Planning
+        { closed :: Maybe OrgDateTime
+        , deadline :: Maybe OrgDateTime
+        , scheduled :: Maybe OrgDateTime
+        , timestamp :: Maybe OrgDateTime
+        }
+
+
 newtype Section =
     Section
         { todo :: Maybe Todo
@@ -131,12 +144,7 @@ newtype Section =
         , heading :: NonEmptyArray Words
         , level :: Int
         , tags :: Array String
-        , planning ::
-            { closed :: Maybe OrgDateTime
-            , deadline :: Maybe OrgDateTime
-            , scheduled :: Maybe OrgDateTime
-            , timestamp :: Maybe OrgDateTime
-            }
+        , planning :: Planning
         , props :: Map String String
         , drawers :: Array Drawer
         , doc :: OrgDoc
@@ -200,9 +208,10 @@ derive instance Newtype Section _
 derive instance Newtype OrgDoc _
 derive instance Newtype Drawer _
 derive instance Newtype OrgDateTime _
-derive instance Newtype OrgTime _
+derive instance Newtype OrgTimeRange _
 derive instance Newtype Repeater _
 derive instance Newtype Delay _
+derive instance Newtype Planning _
 
 {- ----- Show & Eq ----- -}
 
@@ -217,6 +226,56 @@ derive instance Eq Check
 
 
 {- ----- JSON ----- -}
+
+
+class JsonOverRow (row :: Row Type) a | a -> row where
+    convert :: a -> Record row
+    load :: Record row -> a
+
+
+class JsonOverRow row a <= JsonOverRowH (row :: Row Type) a | row -> a where
+    readImplRow :: Foreign -> F (Record row)
+    writeImplRow :: (Record row) -> Foreign
+
+
+class JsonOverVariant (row :: Row Type) a | a -> row where
+    readForeign :: Foreign -> F a
+    toVariant :: a -> Variant row
+
+
+class JsonOverVariant row a <= JsonOverVariantH (row :: Row Type) a | a -> row where
+    readImplVar :: Foreign -> F a
+    writeImplVar :: a -> Foreign
+
+
+class Newtype a x <= JsonOverNewtype a x | a -> x where
+    readImplNT :: Foreign -> F a
+    writeImplNT :: a -> Foreign
+
+
+instance (RL.RowToList row rl, ReadForeignVariant rl row, WriteForeignVariant rl row, JsonOverVariant row a) => JsonOverVariantH row a where
+    readImplVar = readForeign
+    writeImplVar = writeImpl <<< toVariant
+
+
+instance (ReadForeign x, WriteForeign x, Newtype a x) => JsonOverNewtype a x where
+    readImplNT f = (readImpl f :: F x) <#> wrap
+    writeImplNT = unwrap >>> writeImpl
+
+
+instance
+    ( RL.RowToList row rl
+    , ReadForeignFields rl () row
+    , WriteForeignFields rl row () to
+    , JsonOverRow row a
+    ) => JsonOverRowH row a where
+    -- FIXME: we don't need that class / instance since it's just `readImpl` / `writeImpl`
+    readImplRow = readImpl
+    writeImplRow = writeImpl
+
+
+-- instance (ReadForeign x, JsonOverNewtype a x) => ReadForeign a where
+--     readImpl f = (readImpl f :: F x) <#> wrap
 
 
 type CheckRow =
@@ -243,16 +302,19 @@ checkToVariant = case _ of
     Halfcheck -> Variant.mark (Proxy :: _ "halfcheck")
 
 
-instance ReadForeign Check where readImpl = readCheck
-instance WriteForeign Check where writeImpl = writeImpl <<< checkToVariant
+instance ReadForeign Check where readImpl = readImplVar
+instance WriteForeign Check where writeImpl = writeImplVar
+instance JsonOverVariant CheckRow Check where
+    readForeign = readCheck
+    toVariant = checkToVariant
 
 
-instance ReadForeign Language where readImpl f = (readImpl f :: F String) <#> wrap
-instance WriteForeign Language where writeImpl = unwrap >>> writeImpl
+instance ReadForeign Language where readImpl = readImplNT
+instance WriteForeign Language where writeImpl = writeImplNT
 
 
-instance ReadForeign URL where readImpl f = (readImpl f :: F String) <#> wrap
-instance WriteForeign URL where writeImpl = unwrap >>> writeImpl
+instance ReadForeign URL where readImpl = readImplNT
+instance WriteForeign URL where writeImpl = writeImplNT
 
 
 type BlockRow =
@@ -290,6 +352,13 @@ blockToVariant = case _ of
     Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ NEA.toArray words
     List _ -> Variant.select1 (Proxy :: _ "quote") "QQQ" -- FIXME
     Table _ -> Variant.select1 (Proxy :: _ "quote") "QQQ" -- FIXME
+
+
+instance ReadForeign Block where readImpl = readImplVar
+instance WriteForeign Block where writeImpl = writeImplVar
+instance JsonOverVariant BlockRow Block where
+    readForeign = readBlock
+    toVariant = blockToVariant
 
 
 type WordsRow =
@@ -343,8 +412,11 @@ wordsToVariant = case _ of
     JoinW wA wB -> Variant.select1 (Proxy :: _ "bold") "JOIN" -- FIXME
 
 
-instance ReadForeign Words where readImpl = readWords
-instance WriteForeign Words where writeImpl = writeImpl <<< wordsToVariant
+instance ReadForeign Words where readImpl = readImplVar
+instance WriteForeign Words where writeImpl = writeImplVar
+instance JsonOverVariant WordsRow Words where
+    readForeign = readWords
+    toVariant = wordsToVariant
 
 
 type CookieRow =
@@ -371,11 +443,14 @@ cookieToVariant = case _ of
     Pie -> Variant.mark (Proxy :: _ "pie")
 
 
-instance ReadForeign Cookie where readImpl = readCookie
-instance WriteForeign Cookie where writeImpl = writeImpl <<< cookieToVariant
+instance ReadForeign Cookie where readImpl = readImplVar
+instance WriteForeign Cookie where writeImpl = writeImplVar
+instance JsonOverVariant CookieRow Cookie where
+    readForeign = readCookie
+    toVariant = cookieToVariant
 
 
-type PriotityRow =
+type PriorityRow =
     ( alpha :: Case1 Char
     , num :: Case1 Int
     )
@@ -384,20 +459,23 @@ type PriotityRow =
 readPriority :: Foreign -> F Priority
 readPriority =
     readMatchImpl
-        (Proxy :: _ PriotityRow)
+        (Proxy :: _ PriorityRow)
         { alpha : Variant.match1 Alpha
         , num : Variant.match1 Num
         }
 
 
-priorityToVariant :: Priority -> Variant PriotityRow
+priorityToVariant :: Priority -> Variant PriorityRow
 priorityToVariant = case _ of
     Alpha a -> Variant.select1 (Proxy :: _ "alpha") a
     Num n -> Variant.select1 (Proxy :: _ "num") n
 
 
-instance ReadForeign Priority where readImpl = readPriority
-instance WriteForeign Priority where writeImpl = writeImpl <<< priorityToVariant
+instance ReadForeign Priority where readImpl = readImplVar
+instance WriteForeign Priority where writeImpl = writeImplVar
+instance JsonOverVariant PriorityRow Priority where
+    readForeign = readPriority
+    toVariant = priorityToVariant
 
 
 type TodoRow =
@@ -427,8 +505,11 @@ todoToVariant = case _ of
     Custom s -> Variant.select1 (Proxy :: _ "custom") s
 
 
-instance ReadForeign Todo where readImpl = readTodo
-instance WriteForeign Todo where writeImpl = writeImpl <<< todoToVariant
+instance ReadForeign Todo where readImpl = readImplVar
+instance WriteForeign Todo where writeImpl = writeImplVar
+instance JsonOverVariant TodoRow Todo where
+    readForeign = readTodo
+    toVariant = todoToVariant
 
 
 type ListTypeRow =
@@ -458,8 +539,11 @@ listTypeToVariant = case _ of
     Alphed -> Variant.mark (Proxy :: _ "alphed")
 
 
-instance ReadForeign ListType where readImpl = readListType
-instance WriteForeign ListType where writeImpl = writeImpl <<< listTypeToVariant
+instance ReadForeign ListType where readImpl = readImplVar
+instance WriteForeign ListType where writeImpl = writeImplVar
+instance JsonOverVariant ListTypeRow ListType where
+    readForeign = readListType
+    toVariant = listTypeToVariant
 
 
 type IntervalRow =
@@ -492,8 +576,11 @@ intervalToVariant = case _ of
     Year  -> Variant.mark (Proxy :: _ "year")
 
 
-instance ReadForeign Interval where readImpl = readInterval
-instance WriteForeign Interval where writeImpl = writeImpl <<< intervalToVariant
+instance ReadForeign Interval where readImpl = readImplVar
+instance WriteForeign Interval where writeImpl = writeImplVar
+instance JsonOverVariant IntervalRow Interval where
+    readForeign = readInterval
+    toVariant = intervalToVariant
 
 
 type RepeaterModeRow =
@@ -520,8 +607,11 @@ repeaterModeToVariant = case _ of
     FromToday -> Variant.mark (Proxy :: _ "fromToday")
 
 
-instance ReadForeign RepeaterMode where readImpl = readRepeaterMode
-instance WriteForeign RepeaterMode where writeImpl = writeImpl <<< repeaterModeToVariant
+instance ReadForeign RepeaterMode where readImpl = readImplVar
+instance WriteForeign RepeaterMode where writeImpl = writeImplVar
+instance JsonOverVariant RepeaterModeRow RepeaterMode where
+    readForeign = readRepeaterMode
+    toVariant = repeaterModeToVariant
 
 
 type DelayModeRow =
@@ -545,12 +635,23 @@ delayModeToVariant = case _ of
     DelayAll -> Variant.mark (Proxy :: _ "all")
 
 
-instance ReadForeign DelayMode where readImpl = readDelayMode
-instance WriteForeign DelayMode where writeImpl = writeImpl <<< delayModeToVariant
+convertDelayMode :: Variant DelayModeRow -> DelayMode
+convertDelayMode mode =
+    flip Variant.match mode $
+        { one : const DelayOne
+        , all : const DelayAll
+        }
 
 
-instance ReadForeign Drawer where readImpl f = readImpl f <#> wrap
-instance WriteForeign Drawer where writeImpl = unwrap >>> writeImpl
+instance ReadForeign DelayMode where readImpl = readImplVar
+instance WriteForeign DelayMode where writeImpl = writeImplVar
+instance JsonOverVariant DelayModeRow DelayMode where
+    readForeign = readDelayMode
+    toVariant = delayModeToVariant
+
+
+instance ReadForeign Drawer where readImpl = readImplNT
+instance WriteForeign Drawer where writeImpl = writeImplNT
 
 
 -- instance ReadForeign OrgDateTime where readImpl f = readImpl f <#> wrap
@@ -561,8 +662,8 @@ instance WriteForeign Drawer where writeImpl = unwrap >>> writeImpl
 -- instance WriteForeign OrgTime where writeImpl = unwrap >>> writeImpl
 
 
-instance ReadForeign Repeater where readImpl f = readImpl f <#> wrap
-instance WriteForeign Repeater where writeImpl = unwrap >>> writeImpl
+instance ReadForeign Repeater where readImpl = readImplNT
+instance WriteForeign Repeater where writeImpl = writeImplNT
 
 
 -- instance ReadForeign OrgDoc where readImpl f = readImpl f <#> wrap
