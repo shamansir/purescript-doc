@@ -672,3 +672,219 @@ instance WriteForeign Repeater where writeImpl = writeImplNT
 
 -- instance ReadForeign Section where readImpl f = readImpl f <#> wrap
 -- instance WriteForeign Section where writeImpl = unwrap >>> writeImpl
+
+
+type DelayRow =
+    ( mode :: Variant DelayModeRow
+    , value :: Int
+    , interval :: Interval
+    )
+
+
+convertDelay :: Delay -> Record DelayRow
+convertDelay = unwrap >>>
+    case _ of
+        { mode, value, interval } ->
+            { mode : delayModeToVariant mode
+            , value
+            , interval
+            }
+
+
+loadDelay :: Record DelayRow -> Delay
+loadDelay =
+    case _ of
+        { mode, value, interval } ->
+            wrap
+                { mode : convertDelayMode mode
+                , value
+                , interval
+                }
+
+
+instance ReadForeign Delay where readImpl = readImplNT
+instance WriteForeign Delay where writeImpl = writeImplNT
+instance JsonOverRow DelayRow Delay where
+    convert = convertDelay
+    load = loadDelay
+
+
+type JsonTimeRow =
+    ( hour :: Int
+    , minute :: Int
+    , second :: Int
+    , millisecond :: Int
+    -- TODO: zone :: String
+    )
+
+
+convertTime :: Time -> Record JsonTimeRow
+convertTime t =
+    { hour : Time.hour t # fromEnum
+    , minute : Time.minute t # fromEnum
+    , second : Time.second t # fromEnum
+    , millisecond : Time.millisecond t # fromEnum
+    }
+
+
+loadTime :: Record JsonTimeRow -> Time
+loadTime rec =
+    Time
+        (toEnum rec.hour # fromMaybe bottom)
+        (toEnum rec.minute # fromMaybe bottom)
+        (toEnum rec.second # fromMaybe bottom)
+        (toEnum rec.millisecond # fromMaybe bottom)
+
+
+instance JsonOverRow JsonTimeRow Time where
+    convert = convertTime
+    load = loadTime
+
+
+type JsonTimeRangeRow =
+    ( start :: Record JsonTimeRow
+    , end :: Maybe (Record JsonTimeRow)
+    )
+
+
+convertTimeRange :: OrgTimeRange -> Record JsonTimeRangeRow
+convertTimeRange t =
+    { start : convertTime  $ _.start $ unwrap t
+    , end :   convertTime <$> (_.end $ unwrap t)
+    }
+
+
+loadTimeRange :: Record JsonTimeRangeRow -> OrgTimeRange
+loadTimeRange rec =
+    OrgTimeRange
+        { start : loadTime rec.start
+        , end : loadTime <$> rec.end
+        }
+
+
+instance JsonOverRow JsonTimeRangeRow OrgTimeRange where
+    convert = convertTimeRange
+    load = loadTimeRange
+
+
+type JsonDateTimeRow =
+    ( day :: Int
+    , dayOfWeek :: Int
+    , time :: Maybe (Record JsonTimeRangeRow)
+    , repeat :: Maybe Repeater
+    , delay :: Maybe Delay
+    )
+
+
+convertToDateTime :: OrgDateTime -> Record JsonDateTimeRow
+convertToDateTime = unwrap >>> case _ of
+    { day, dayOfWeek, time, repeat, delay } ->
+        { day : fromEnum day
+        , dayOfWeek : fromEnum dayOfWeek
+        , time : convertTimeRange <$> time
+        , delay
+        , repeat
+        }
+
+
+loadDateTime :: Record JsonDateTimeRow -> OrgDateTime
+loadDateTime =
+    case _ of
+        { day, dayOfWeek, time, repeat, delay } ->
+            wrap
+                { day : toEnum day # fromMaybe bottom
+                , dayOfWeek : toEnum dayOfWeek # fromMaybe bottom
+                , time : loadTimeRange <$> time
+                , delay
+                , repeat
+                }
+
+
+instance JsonOverRow JsonDateTimeRow OrgDateTime where
+    convert = convertToDateTime
+    load = loadDateTime
+
+
+convertDateTimeNT :: OrgDateTime -> JsonDateTime
+convertDateTimeNT = convertToDateTime >>> wrap
+
+
+loadDateTimeNT :: JsonDateTime -> OrgDateTime
+loadDateTimeNT = unwrap >>> loadDateTime
+
+
+newtype JsonDateTime = JsonDateTime (Record JsonDateTimeRow)
+
+
+derive instance Newtype JsonDateTime _
+
+
+instance ReadForeign JsonDateTime where readImpl = readImplNT
+instance WriteForeign JsonDateTime where writeImpl = writeImplNT
+
+
+newtype JsonSectionId = SectionId (Array Int)
+
+
+type PlanningRow =
+    ( closed :: Maybe JsonDateTime
+    , deadline :: Maybe JsonDateTime
+    , scheduled :: Maybe JsonDateTime
+    , timestamp :: Maybe JsonDateTime
+    )
+
+
+
+convertPlanning :: Planning -> Record PlanningRow
+convertPlanning = unwrap >>> case _ of
+    pl ->
+        { closed    : convertDateTimeNT <$> pl.closed
+        , deadline  : convertDateTimeNT <$> pl.deadline
+        , scheduled : convertDateTimeNT <$> pl.scheduled
+        , timestamp : convertDateTimeNT <$> pl.timestamp
+        }
+
+
+loadPlanning :: Record PlanningRow -> Planning
+loadPlanning pl =
+    wrap
+        { closed : loadDateTimeNT <$> pl.closed
+        , deadline : loadDateTimeNT <$> pl.deadline
+        , scheduled : loadDateTimeNT <$> pl.scheduled
+        , timestamp : loadDateTimeNT <$> pl.timestamp
+        }
+
+
+instance JsonOverRow PlanningRow Planning where
+    convert = convertPlanning
+    load = loadPlanning
+
+
+-- convertDoc :: OrgDoc -> Record DocRow
+-- convertOrgFile :: OrgFile -> Record FileRow
+
+
+type DocRow =
+    ( blocks :: Array Block
+    , sections :: Array JsonSectionId
+    )
+
+
+type SectionRow =
+    ( todo :: Maybe Todo
+    , priority :: Maybe Priority
+    , cookie :: Maybe Cookie
+    , heading :: Array Words
+    , level :: Int
+    , planning :: Record PlanningRow
+    , props :: Map String String
+    , drawers :: Array Drawer
+    , doc :: Record DocRow
+    )
+
+
+type FileRow =
+    ( meta :: Map String String
+    , doc :: Record DocRow
+    , sections :: Map JsonSectionId (Record SectionRow)
+    )
