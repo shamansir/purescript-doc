@@ -8,11 +8,14 @@ import Prim.RowList as RL
 import Type.Proxy (Proxy(..))
 
 import Data.Maybe (Maybe, fromMaybe)
+import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.String (CodePoint)
 import Data.Map (Map)
+import Data.Map as Map
 import Data.Date (Day, Weekday)
+import Data.Tuple as Tuple
 import Data.Time (Time(..))
 import Data.Time as Time
 import Data.Enum (fromEnum, toEnum)
@@ -25,7 +28,9 @@ import Data.Newtype (class Newtype, wrap, unwrap)
 
 import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields, class WriteForeignFields, class ReadForeignVariant, class WriteForeignVariant, readImpl, writeImpl)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
-import Yoga.Json.Extra (mark, matched, match1, match2, select1, select2, todo) as Variant
+import Yoga.Json.Extra
+    ( mark, matched, match1, match2, select1, select2, todo
+    , uncase1, uncase2 ) as Variant
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
@@ -412,6 +417,25 @@ wordsToVariant = case _ of
     JoinW wA wB -> Variant.select1 (Proxy :: _ "bold") "JOIN" -- FIXME
 
 
+{-
+wordsFromVariant :: Variant WordsRow -> Words
+wordsFromVariant =
+    Variant.match
+        { bold : Variant.uncase1 >>> Bold
+        , italic : Variant.uncase1 >>> Italic
+        , highlight : Variant.uncase1 >>> Highlight
+        , underline : Variant.uncase1 >>> Underline
+        , verbatim : Variant.uncase1 >>> Verbatim
+        , link : Variant.uncase2 >>> Tuple.uncurry Link
+        , image : Variant.uncase1 >>> Image
+        , punct : Variant.uncase1 >>> codePointFromChar >>> Punct
+        , strike : Variant.uncase1 >>> Strike
+        , plain : Variant.uncase1 >>> Plain
+        , markup : Variant.uncase1 >>> Markup
+        -- , join : Variant.uncase2 JoinW  -- FIXME
+        }
+-}
+
 instance ReadForeign Words where readImpl = readImplVar
 instance WriteForeign Words where writeImpl = writeImplVar
 instance JsonOverVariant WordsRow Words where
@@ -749,16 +773,16 @@ type JsonTimeRangeRow =
 
 convertTimeRange :: OrgTimeRange -> Record JsonTimeRangeRow
 convertTimeRange t =
-    { start : convertTime  $ _.start $ unwrap t
-    , end :   convertTime <$> (_.end $ unwrap t)
+    { start : convert  $ _.start $ unwrap t
+    , end :   convert <$> (_.end $ unwrap t)
     }
 
 
 loadTimeRange :: Record JsonTimeRangeRow -> OrgTimeRange
 loadTimeRange rec =
     OrgTimeRange
-        { start : loadTime rec.start
-        , end : loadTime <$> rec.end
+        { start : load rec.start
+        , end : load <$> rec.end
         }
 
 
@@ -781,7 +805,7 @@ convertToDateTime = unwrap >>> case _ of
     { day, dayOfWeek, time, repeat, delay } ->
         { day : fromEnum day
         , dayOfWeek : fromEnum dayOfWeek
-        , time : convertTimeRange <$> time
+        , time : convert <$> time
         , delay
         , repeat
         }
@@ -794,7 +818,7 @@ loadDateTime =
             wrap
                 { day : toEnum day # fromMaybe bottom
                 , dayOfWeek : toEnum dayOfWeek # fromMaybe bottom
-                , time : loadTimeRange <$> time
+                , time : load <$> time
                 , delay
                 , repeat
                 }
@@ -806,11 +830,11 @@ instance JsonOverRow JsonDateTimeRow OrgDateTime where
 
 
 convertDateTimeNT :: OrgDateTime -> JsonDateTime
-convertDateTimeNT = convertToDateTime >>> wrap
+convertDateTimeNT = convert >>> wrap
 
 
 loadDateTimeNT :: JsonDateTime -> OrgDateTime
-loadDateTimeNT = unwrap >>> loadDateTime
+loadDateTimeNT = unwrap >>> load
 
 
 newtype JsonDateTime = JsonDateTime (Record JsonDateTimeRow)
@@ -826,13 +850,18 @@ instance WriteForeign JsonDateTime where writeImpl = writeImplNT
 newtype JsonSectionId = SectionId (Array Int)
 
 
+-- derive instance Newtype JsonSectionId _
+
+derive newtype instance Eq JsonSectionId
+derive newtype instance Ord JsonSectionId
+
+
 type PlanningRow =
     ( closed :: Maybe JsonDateTime
     , deadline :: Maybe JsonDateTime
     , scheduled :: Maybe JsonDateTime
     , timestamp :: Maybe JsonDateTime
     )
-
 
 
 convertPlanning :: Planning -> Record PlanningRow
@@ -865,20 +894,22 @@ instance JsonOverRow PlanningRow Planning where
 
 
 type DocRow =
-    ( blocks :: Array Block
+    ( blocks :: Array (Variant BlockRow)
     , sections :: Array JsonSectionId
     )
 
 
 type SectionRow =
-    ( todo :: Maybe Todo
-    , priority :: Maybe Priority
-    , cookie :: Maybe Cookie
+    ( id :: JsonSectionId
+     -- FIXME: We may use original types instead of `Variant` here and below since `readForeign`/`writeForeign` are implemented for them
+    , todo :: Maybe (Variant TodoRow)
+    , priority :: Maybe (Variant PriorityRow)
+    , cookie :: Maybe (Variant CookieRow)
     , heading :: Array Words
     , level :: Int
     , planning :: Record PlanningRow
     , props :: Map String String
-    , drawers :: Array Drawer
+    -- , drawers :: Array Drawer -- FIXME: TODO
     , doc :: Record DocRow
     )
 
@@ -886,5 +917,72 @@ type SectionRow =
 type FileRow =
     ( meta :: Map String String
     , doc :: Record DocRow
-    , sections :: Map JsonSectionId (Record SectionRow)
+    , sections :: SectionsMap
     )
+
+
+type SectionsMap = Map JsonSectionId (Record SectionRow)
+
+
+convertSection :: JsonSectionId -> Section -> Record SectionRow /\ SectionsMap
+convertSection sectionId (Section section) =
+    let convertedDoc /\ sectionsMap = convertDoc sectionId section.doc
+    in
+        { id : sectionId
+        , cookie : toVariant <$> section.cookie
+        , todo : toVariant <$> section.todo
+        , priority : toVariant <$> section.priority
+        , heading : [] -- FIXME: TODO
+        , level : section.level
+        , planning : convert section.planning
+        , props : Map.empty
+        , doc : convertedDoc
+        }
+    /\ sectionsMap
+
+
+-- loadSection :: SectionsMap -> Record SectionRow -> Section
+-- loadSection allSections section =
+--     Section
+--         { todo : convert}
+
+
+collectSections :: JsonSectionId -> Array Section -> Array JsonSectionId /\ SectionsMap
+collectSections (SectionId parentId) sections =
+    let
+        sectionsIdsAndInnerMaps =
+            sections
+                # Array.mapWithIndex
+                    (\idx section ->
+                        let
+                            sectionId = SectionId $ parentId <> [ idx ]
+                            convertedSection /\ innerSections = convertSection sectionId section
+                        in
+                            sectionId /\ (innerSections # Map.insert sectionId convertedSection)
+                    )
+        sectionsIds = Tuple.fst <$> sectionsIdsAndInnerMaps
+        sectionsMap = Array.foldl Map.union Map.empty $ Tuple.snd <$> sectionsIdsAndInnerMaps
+    in sectionsIds /\ sectionsMap
+
+
+convertDoc :: JsonSectionId -> OrgDoc -> Record DocRow /\ SectionsMap
+convertDoc parentId (OrgDoc doc) =
+    let (sectionsIds /\ sectionsMap) = collectSections parentId doc.sections
+    in
+    (
+        { blocks : toVariant <$> doc.zeroth
+        , sections : sectionsIds
+        }
+    /\
+        sectionsMap
+    )
+
+
+convertFile :: OrgFile -> Record FileRow
+convertFile (OrgFile { meta, doc }) =
+    let convertedDoc /\ sectionsMap = convertDoc (SectionId [ 0 ]) doc
+    in
+    { meta
+    , doc : convertedDoc
+    , sections : sectionsMap
+    }
