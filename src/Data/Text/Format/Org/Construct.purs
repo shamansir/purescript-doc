@@ -131,11 +131,12 @@ sec level heading doc =
         , level
         , tags : []
         , planning :
-            { closed : Nothing
-            , deadline : Nothing
-            , scheduled : Nothing
-            , timestamp : Nothing
-            }
+            Planning
+                { closed : Nothing
+                , deadline : Nothing
+                , scheduled : Nothing
+                , timestamp : Nothing
+                }
         , props : Map.empty
         , drawers : []
         , doc

@@ -7,7 +7,7 @@ import Prim.RowList as RL
 
 import Type.Proxy (Proxy(..))
 
-import Data.Maybe (Maybe, fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
@@ -30,7 +30,7 @@ import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
 import Yoga.Json.Extra
     ( mark, matched, match1, match2, select1, select2, todo
-    , uncase1, uncase2 ) as Variant
+    , uncase, uncase1, uncase2 ) as Variant
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
@@ -238,14 +238,15 @@ class JsonOverRow (row :: Row Type) a | a -> row where
     load :: Record row -> a
 
 
-class JsonOverRow row a <= JsonOverRowH (row :: Row Type) a | row -> a where
-    readImplRow :: Foreign -> F (Record row)
-    writeImplRow :: (Record row) -> Foreign
+class JsonOverRow row a <= JsonOverRowH (row :: Row Type) a | a -> row where
+    readImplRow :: Foreign -> F a
+    writeImplRow :: a -> Foreign
 
 
 class JsonOverVariant (row :: Row Type) a | a -> row where
     readForeign :: Foreign -> F a
     toVariant :: a -> Variant row
+    fromVariant :: Variant row -> a -- TODO: could be used / joined with `readForeign`, or `readForeign` could use `fromVariant` as binging
 
 
 class JsonOverVariant row a <= JsonOverVariantH (row :: Row Type) a | a -> row where
@@ -253,7 +254,7 @@ class JsonOverVariant row a <= JsonOverVariantH (row :: Row Type) a | a -> row w
     writeImplVar :: a -> Foreign
 
 
-class Newtype a x <= JsonOverNewtype a x | a -> x where
+class Newtype a x <= JsonOverNewtype a x | a -> x, x -> a where
     readImplNT :: Foreign -> F a
     writeImplNT :: a -> Foreign
 
@@ -274,9 +275,8 @@ instance
     , WriteForeignFields rl row () to
     , JsonOverRow row a
     ) => JsonOverRowH row a where
-    -- FIXME: we don't need that class / instance since it's just `readImpl` / `writeImpl`
-    readImplRow = readImpl
-    writeImplRow = writeImpl
+    readImplRow f = (readImpl f :: F (Record row)) <#> load
+    writeImplRow = convert >>> writeImpl
 
 
 -- instance (ReadForeign x, JsonOverNewtype a x) => ReadForeign a where
@@ -307,11 +307,22 @@ checkToVariant = case _ of
     Halfcheck -> Variant.mark (Proxy :: _ "halfcheck")
 
 
+
+checkFromVariant :: Variant CheckRow -> Check
+checkFromVariant =
+    Variant.match
+        { check : Variant.uncase Check
+        , uncheck : Variant.uncase Uncheck
+        , halfcheck : Variant.uncase Halfcheck
+        }
+
+
 instance ReadForeign Check where readImpl = readImplVar
 instance WriteForeign Check where writeImpl = writeImplVar
 instance JsonOverVariant CheckRow Check where
     readForeign = readCheck
     toVariant = checkToVariant
+    fromVariant = checkFromVariant
 
 
 instance ReadForeign Language where readImpl = readImplNT
@@ -359,11 +370,24 @@ blockToVariant = case _ of
     Table _ -> Variant.select1 (Proxy :: _ "quote") "QQQ" -- FIXME
 
 
+blockFromVariant :: Variant BlockRow -> Block
+blockFromVariant =
+    Variant.match
+        { quote : Variant.uncase1 >>> Quote
+        , example : Variant.uncase1 >>> Example
+        , code : Variant.uncase2 >>> Tuple.uncurry Code
+        -- , list : ?wh -- Variant.todo $ Quote ""
+        -- , table : ?wh -- Variant.todo $ Quote ""
+        , paragraph : Variant.uncase1 >>> toNEA (Plain "??") >>> Paragraph
+        }
+
+
 instance ReadForeign Block where readImpl = readImplVar
 instance WriteForeign Block where writeImpl = writeImplVar
 instance JsonOverVariant BlockRow Block where
     readForeign = readBlock
     toVariant = blockToVariant
+    fromVariant = blockFromVariant
 
 
 type WordsRow =
@@ -417,7 +441,6 @@ wordsToVariant = case _ of
     JoinW wA wB -> Variant.select1 (Proxy :: _ "bold") "JOIN" -- FIXME
 
 
-{-
 wordsFromVariant :: Variant WordsRow -> Words
 wordsFromVariant =
     Variant.match
@@ -434,13 +457,14 @@ wordsFromVariant =
         , markup : Variant.uncase1 >>> Markup
         -- , join : Variant.uncase2 JoinW  -- FIXME
         }
--}
+
 
 instance ReadForeign Words where readImpl = readImplVar
 instance WriteForeign Words where writeImpl = writeImplVar
 instance JsonOverVariant WordsRow Words where
     readForeign = readWords
     toVariant = wordsToVariant
+    fromVariant = wordsFromVariant
 
 
 type CookieRow =
@@ -467,11 +491,21 @@ cookieToVariant = case _ of
     Pie -> Variant.mark (Proxy :: _ "pie")
 
 
+cookieFromVariant :: Variant CookieRow -> Cookie
+cookieFromVariant =
+    Variant.match
+        { split : Variant.uncase Split
+        , percent : Variant.uncase Percent
+        , pie : Variant.uncase Pie
+        }
+
+
 instance ReadForeign Cookie where readImpl = readImplVar
 instance WriteForeign Cookie where writeImpl = writeImplVar
 instance JsonOverVariant CookieRow Cookie where
     readForeign = readCookie
     toVariant = cookieToVariant
+    fromVariant = cookieFromVariant
 
 
 type PriorityRow =
@@ -495,11 +529,20 @@ priorityToVariant = case _ of
     Num n -> Variant.select1 (Proxy :: _ "num") n
 
 
+priorityFromVariant :: Variant PriorityRow -> Priority
+priorityFromVariant =
+    Variant.match
+        { alpha : Variant.uncase1 >>> Alpha
+        , num : Variant.uncase1 >>> Num
+        }
+
+
 instance ReadForeign Priority where readImpl = readImplVar
 instance WriteForeign Priority where writeImpl = writeImplVar
 instance JsonOverVariant PriorityRow Priority where
     readForeign = readPriority
     toVariant = priorityToVariant
+    fromVariant = priorityFromVariant
 
 
 type TodoRow =
@@ -529,11 +572,22 @@ todoToVariant = case _ of
     Custom s -> Variant.select1 (Proxy :: _ "custom") s
 
 
+todoFromVariant :: Variant TodoRow -> Todo
+todoFromVariant =
+    Variant.match
+        { todo : Variant.uncase TODO
+        , doing : Variant.uncase DOING
+        , done : Variant.uncase DONE
+        , custom : Variant.uncase1 >>> Custom
+        }
+
+
 instance ReadForeign Todo where readImpl = readImplVar
 instance WriteForeign Todo where writeImpl = writeImplVar
 instance JsonOverVariant TodoRow Todo where
     readForeign = readTodo
     toVariant = todoToVariant
+    fromVariant = todoFromVariant
 
 
 type ListTypeRow =
@@ -563,11 +617,22 @@ listTypeToVariant = case _ of
     Alphed -> Variant.mark (Proxy :: _ "alphed")
 
 
+listTypeFromVariant :: Variant ListTypeRow -> ListType
+listTypeFromVariant =
+    Variant.match
+        { bulleted : Variant.uncase Bulleted
+        , plussed : Variant.uncase Plussed
+        , numbered : Variant.uncase Numbered
+        , alphed : Variant.uncase Alphed
+        }
+
+
 instance ReadForeign ListType where readImpl = readImplVar
 instance WriteForeign ListType where writeImpl = writeImplVar
 instance JsonOverVariant ListTypeRow ListType where
     readForeign = readListType
     toVariant = listTypeToVariant
+    fromVariant = listTypeFromVariant
 
 
 type IntervalRow =
@@ -600,11 +665,23 @@ intervalToVariant = case _ of
     Year  -> Variant.mark (Proxy :: _ "year")
 
 
+intervalFromVariant :: Variant IntervalRow -> Interval
+intervalFromVariant =
+    Variant.match
+        { hour : Variant.uncase Hour
+        , day : Variant.uncase Day
+        , week : Variant.uncase Week
+        , month : Variant.uncase Month
+        , year : Variant.uncase Year
+        }
+
+
 instance ReadForeign Interval where readImpl = readImplVar
 instance WriteForeign Interval where writeImpl = writeImplVar
 instance JsonOverVariant IntervalRow Interval where
     readForeign = readInterval
     toVariant = intervalToVariant
+    fromVariant = intervalFromVariant
 
 
 type RepeaterModeRow =
@@ -631,11 +708,21 @@ repeaterModeToVariant = case _ of
     FromToday -> Variant.mark (Proxy :: _ "fromToday")
 
 
+repeaterModeFromVariant :: Variant RepeaterModeRow -> RepeaterMode
+repeaterModeFromVariant =
+    Variant.match
+        { single : Variant.uncase Single
+        , jump : Variant.uncase Jump
+        , fromToday : Variant.uncase FromToday
+        }
+
+
 instance ReadForeign RepeaterMode where readImpl = readImplVar
 instance WriteForeign RepeaterMode where writeImpl = writeImplVar
 instance JsonOverVariant RepeaterModeRow RepeaterMode where
     readForeign = readRepeaterMode
     toVariant = repeaterModeToVariant
+    fromVariant = repeaterModeFromVariant
 
 
 type DelayModeRow =
@@ -659,8 +746,8 @@ delayModeToVariant = case _ of
     DelayAll -> Variant.mark (Proxy :: _ "all")
 
 
-convertDelayMode :: Variant DelayModeRow -> DelayMode
-convertDelayMode mode =
+delayModeFromVariant :: Variant DelayModeRow -> DelayMode
+delayModeFromVariant mode =
     flip Variant.match mode $
         { one : const DelayOne
         , all : const DelayAll
@@ -672,6 +759,7 @@ instance WriteForeign DelayMode where writeImpl = writeImplVar
 instance JsonOverVariant DelayModeRow DelayMode where
     readForeign = readDelayMode
     toVariant = delayModeToVariant
+    fromVariant = delayModeFromVariant
 
 
 instance ReadForeign Drawer where readImpl = readImplNT
@@ -709,7 +797,7 @@ convertDelay :: Delay -> Record DelayRow
 convertDelay = unwrap >>>
     case _ of
         { mode, value, interval } ->
-            { mode : delayModeToVariant mode
+            { mode : toVariant mode
             , value
             , interval
             }
@@ -720,7 +808,7 @@ loadDelay =
     case _ of
         { mode, value, interval } ->
             wrap
-                { mode : convertDelayMode mode
+                { mode : fromVariant mode
                 , value
                 , interval
                 }
@@ -850,10 +938,15 @@ instance WriteForeign JsonDateTime where writeImpl = writeImplNT
 newtype JsonSectionId = SectionId (Array Int)
 
 
--- derive instance Newtype JsonSectionId _
+derive instance Newtype JsonSectionId _
+
 
 derive newtype instance Eq JsonSectionId
 derive newtype instance Ord JsonSectionId
+
+
+instance ReadForeign JsonSectionId where readImpl = readImplNT
+instance WriteForeign JsonSectionId where writeImpl = writeImplNT
 
 
 type PlanningRow =
@@ -905,6 +998,7 @@ type SectionRow =
     , todo :: Maybe (Variant TodoRow)
     , priority :: Maybe (Variant PriorityRow)
     , cookie :: Maybe (Variant CookieRow)
+    , check :: Maybe (Variant CheckRow)
     , heading :: Array Words
     , level :: Int
     , planning :: Record PlanningRow
@@ -917,11 +1011,54 @@ type SectionRow =
 type FileRow =
     ( meta :: Map String String
     , doc :: Record DocRow
-    , sections :: SectionsMap
+    , sections :: Array (JsonSectionId /\ Record SectionRow)
     )
 
 
 type SectionsMap = Map JsonSectionId (Record SectionRow)
+
+
+sectionsToArray :: SectionsMap -> Array (JsonSectionId /\ Record SectionRow)
+sectionsToArray = Map.toUnfoldable
+
+
+sectionsFromArray :: Array (JsonSectionId /\ Record SectionRow) -> SectionsMap
+sectionsFromArray = Map.fromFoldable
+
+
+emptyPlanning :: Planning
+emptyPlanning =
+    Planning
+        { closed : Nothing
+        , deadline : Nothing
+        , scheduled : Nothing
+        , timestamp : Nothing
+        }
+
+
+emptyDoc :: OrgDoc
+emptyDoc =
+    OrgDoc
+        { zeroth : []
+        , sections : []
+        }
+
+
+emptySection :: Section
+emptySection =
+    Section
+        { todo: Nothing
+        , priority : Nothing
+        , cookie : Nothing
+        , check : Nothing
+        , heading : NEA.singleton $ Plain "$$" -- FIXME: TODO
+        , level : -1
+        , tags : []
+        , planning : emptyPlanning
+        , props : Map.empty
+        , drawers : []
+        , doc : emptyDoc
+        }
 
 
 convertSection :: JsonSectionId -> Section -> Record SectionRow /\ SectionsMap
@@ -929,22 +1066,43 @@ convertSection sectionId (Section section) =
     let convertedDoc /\ sectionsMap = convertDoc sectionId section.doc
     in
         { id : sectionId
-        , cookie : toVariant <$> section.cookie
         , todo : toVariant <$> section.todo
         , priority : toVariant <$> section.priority
+        , cookie : toVariant <$> section.cookie
+        , check : toVariant <$> section.check
         , heading : [] -- FIXME: TODO
         , level : section.level
         , planning : convert section.planning
-        , props : Map.empty
+        , props : Map.empty -- FIXME: TODO
         , doc : convertedDoc
         }
     /\ sectionsMap
 
 
--- loadSection :: SectionsMap -> Record SectionRow -> Section
--- loadSection allSections section =
---     Section
---         { todo : convert}
+loadSection :: SectionsMap -> Record SectionRow -> Section
+loadSection allSections section =
+    Section
+        { todo : fromVariant <$> section.todo
+        , priority : fromVariant <$> section.priority
+        , cookie : fromVariant <$> section.cookie
+        , check : fromVariant <$> section.check
+        , heading : NEA.singleton $ Plain "$$" -- FIXME: TODO
+        , level : section.level
+        , tags : [] -- FIXME: TODO
+        , planning : load section.planning
+        , drawers : [] -- FIXME: TODO
+        , props : Map.empty  -- FIXME: TODO
+        , doc : loadDoc allSections section.doc
+        }
+
+
+-- instance ReadForeign Section where
+--     readImpl f = (readImpl f :: F (Record SectionRow)) <#> loadSection (SectionsMap Map.empty)
+
+
+-- instance JsonOverRow DocRow OrgDoc where
+--     convert = convertSection
+--     load = loadSection
 
 
 collectSections :: JsonSectionId -> Array Section -> Array JsonSectionId /\ SectionsMap
@@ -978,11 +1136,61 @@ convertDoc parentId (OrgDoc doc) =
     )
 
 
+-- instance ReadForeign OrgDoc where
+--     readImpl f = (readImpl f :: F (Record DocRow)) <#> loadDoc Map.empty
+
+
+loadDoc :: SectionsMap -> Record DocRow -> OrgDoc
+loadDoc allSections doc =
+    OrgDoc
+        { zeroth : fromVariant <$> doc.blocks
+        , sections : loadOrEmpty <$> doc.sections
+        }
+    where
+        loadOrEmpty sectionId =
+            Map.lookup sectionId allSections
+                <#> loadSection allSections
+                 #  fromMaybe emptySection
+
+
+-- instance JsonOverRow DocRow OrgDoc where
+--     convert = convertDoc
+--     load = loadDoc
+
+
 convertFile :: OrgFile -> Record FileRow
 convertFile (OrgFile { meta, doc }) =
     let convertedDoc /\ sectionsMap = convertDoc (SectionId [ 0 ]) doc
     in
     { meta
     , doc : convertedDoc
-    , sections : sectionsMap
+    , sections : sectionsToArray sectionsMap
     }
+
+
+loadFile :: Record FileRow -> OrgFile
+loadFile file =
+    OrgFile
+        { meta : file.meta
+        , doc : loadDoc (sectionsFromArray file.sections) file.doc
+        }
+
+
+-- convertFileNT :: OrgFile -
+-- convertFileNT = convert >>> wrap
+
+
+-- loadFileNT :: Record FileRow -> OrgFile
+-- loadFileNT = unwrap >>> load
+
+
+instance JsonOverRow FileRow OrgFile where
+    convert = convertFile
+    load = loadFile
+
+
+-- instance Newtype (Array Int) JsonSectionId
+
+
+instance ReadForeign OrgFile where readImpl = readImplRow
+instance WriteForeign OrgFile where writeImpl = writeImplRow

@@ -94,6 +94,10 @@ matched :: forall a. a -> (Case -> F a)
 matched = todo
 
 
+uncase :: forall a. a -> Case -> a
+uncase = const
+
+
 uncase1 :: forall a. Case1 a -> a
 uncase1 (Case1 a) = a
 
