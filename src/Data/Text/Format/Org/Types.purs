@@ -209,14 +209,18 @@ newtype Language = Language String
 
 derive instance Newtype URL _
 derive instance Newtype Language _
-derive instance Newtype Section _
-derive instance Newtype OrgDoc _
 derive instance Newtype Drawer _
 derive instance Newtype OrgDateTime _
 derive instance Newtype OrgTimeRange _
 derive instance Newtype Repeater _
 derive instance Newtype Delay _
 derive instance Newtype Planning _
+
+-- internals below, they don't need Newtype instance
+
+-- derive instance Newtype Section _
+-- derive instance Newtype OrgDoc _
+-- derive instance Newtype OrgFile _
 
 {- ----- Show & Eq ----- -}
 

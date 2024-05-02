@@ -1,21 +1,22 @@
-module Test.Formatting where
+module Test.Formatting.Doc where
 
 import Prelude
 
-import Data.FoldableWithIndex (foldlWithIndex)
+
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Text.Output.Blessed (multiLine) as T
-import Data.Text.Format as F
+-- import Data.Text.Format as F
 -- import Data.Text.Doc as D
 import Data.Text.Doc as D
-import Data.Text.Doc ((<+>), (</>))
+import Data.Text.Doc ((<+>))
 import Data.String as String
-import Data.Array (concat, take, fromFoldable) as Array
+import Data.Array (fromFoldable) as Array
 import Data.List (List, (:))
 import Data.List (List(..)) as List
 
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual)
+
+import Test.Formatting.Utils (helper)
 
 
 docIndentedSamples :: Array (D.Doc /\ String)
@@ -145,13 +146,6 @@ docIndentedSamples =
 -- <p\n<-->color=\"red\"\n<-->font=\"Times\"\n<-->size=\"10\"\n>\n<-->Here is some\n<--><em>\n<--><-->emphasized\n<--></em>\n<-->text.\n<-->Here is a\n<--><a\n<--><-->href=\"http://www.eg.com\"\n<-->>\n<--><-->link\n<--></a>\n<-->elsewhere.\n</p>
 
 
-blessedSamples :: Array (F.Tag /\ String)
-blessedSamples =
-    [ F.s "foo" /\ "foo"
-    , F.bolds "test" /\ "{bold}test{/bold}"
-    ]
-
-
 spec :: Spec Unit
 spec = do
 
@@ -163,28 +157,6 @@ spec = do
         , render : D.render { break : D.All, indent : D.Custom "<-->" }
         }
         docIndentedSamples
-
-  describe "Formatting works properly for Blessed" $ do
-
-    helper
-        { title : \idx (_ /\ expected) -> show idx <> " : " <> expected
-        , render : T.multiLine
-        }
-        blessedSamples
-
-
-
-helper :: forall a. { title :: Int -> a /\ String -> String, render :: a -> String } -> Array (a /\ String) -> Spec Unit
-helper { title, render } =
-    foldlWithIndex
-        (\idx prev (tag /\ expected) -> do
-            prev
-            *>
-            (it ("works for sample " <> title idx (tag /\ expected)) $
-                render tag `shouldEqual` expected
-            )
-        )
-        (pure unit)
 
 
 data Tree = Node String (List Tree)

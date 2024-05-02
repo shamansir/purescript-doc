@@ -11,5 +11,7 @@ in conf // {
     , "aff"
     , "lists"
     , "ordered-collections"
+    , "node-buffer"
+    , "node-fs"
     ]
 }
