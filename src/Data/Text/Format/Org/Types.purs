@@ -37,7 +37,7 @@ import Yoga.Json.Extra
 
 data OrgFile =
     OrgFile
-        { meta :: Map String String
+        { meta :: Map (Int /\ String) String
         , doc :: OrgDoc
         }
 
@@ -1013,7 +1013,7 @@ type SectionRow =
 
 
 type FileRow =
-    ( meta :: Map String String
+    ( meta :: Array (Int /\ String /\ String)
     , doc :: Record DocRow
     , sections :: Array (JsonSectionId /\ Record SectionRow)
     )
@@ -1166,7 +1166,7 @@ convertFile :: OrgFile -> Record FileRow
 convertFile (OrgFile { meta, doc }) =
     let convertedDoc /\ sectionsMap = convertDoc (SectionId [ 0 ]) doc
     in
-    { meta
+    { meta : _fromOrderedMap meta
     , doc : convertedDoc
     , sections : sectionsToArray sectionsMap
     }
@@ -1175,9 +1175,27 @@ convertFile (OrgFile { meta, doc }) =
 loadFile :: Record FileRow -> OrgFile
 loadFile file =
     OrgFile
-        { meta : file.meta
+        { meta : _toOrderedMap file.meta
         , doc : loadDoc (sectionsFromArray file.sections) file.doc
         }
+
+
+_toOrderedMap :: Array (Int /\ String /\ String) -> Map (Int /\ String) String
+_toOrderedMap = Map.fromFoldable <<< map _swap3
+
+
+_fromOrderedMap :: Map (Int /\ String) String -> Array (Int /\ String /\ String)
+_fromOrderedMap = map _bswap3 <<< Map.toUnfoldable
+
+
+-- t a (t b c) ->  t (t a b) c
+_swap3 :: forall a b c. a /\ (b /\ c) -> (a /\ b) /\ c
+_swap3 (a /\ (b /\ c)) = (a /\ b) /\ c
+
+
+-- t (t a b) c ->  t a (t b c)
+_bswap3 :: forall a b c. (a /\ b) /\ c -> a /\ (b /\ c)
+_bswap3 ((a /\ b) /\ c) = a /\ (b /\ c)
 
 
 -- convertFileNT :: OrgFile -

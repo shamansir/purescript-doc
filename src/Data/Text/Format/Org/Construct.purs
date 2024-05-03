@@ -3,17 +3,19 @@ module Data.Text.Format.Org.Construct where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Data.Map (empty) as Map
+import Data.Map (empty, insert, size) as Map
 import Data.Enum (class BoundedEnum)
-import Data.Text.Format.Org.Types
-import Data.Text.Format.Org.Path (Path)
-import Data.Text.Format.Org.Path as P
 import Data.Tuple (curry, uncurry)
 import Data.Foldable (class Foldable)
 import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
-import Data.Array (toUnfoldable) as Array
+import Data.Array (toUnfoldable, length) as Array
 import Data.Array.NonEmpty as NEA
+
+
+import Data.Text.Format.Org.Types
+import Data.Text.Format.Org.Path (Path)
+import Data.Text.Format.Org.Path as P
 
 
 newtype PropName = PropName String
@@ -44,16 +46,32 @@ f_ :: Array Property -> OrgDoc -> OrgFile
 f_ _ doc = OrgFile { meta : Map.empty, doc : doc }
 
 
-d :: Array Section -> OrgDoc
-d _ = OrgDoc { zeroth : [], sections : [] }
+ds :: Array Section -> OrgDoc
+ds _ = OrgDoc { zeroth : [], sections : [] }
 
 
-d' :: Array Block -> OrgDoc
-d' _ = OrgDoc { zeroth : [], sections : [] }
+db :: Array Block -> OrgDoc
+db _ = OrgDoc { zeroth : [], sections : [] }
 
 
-d_ :: Array Block -> Array Section -> OrgDoc
-d_ _ _ = OrgDoc { zeroth : [], sections : [] }
+dbs :: Array Block -> Array Section -> OrgDoc
+dbs _ _ = OrgDoc { zeroth : [], sections : [] }
+
+
+meta :: String -> String -> OrgFile -> OrgFile
+meta prop val (OrgFile { meta, doc }) =
+    OrgFile
+        { meta : meta # Map.insert (Map.size meta /\ prop) val
+        , doc : doc
+        }
+
+
+metan :: Int -> String -> String -> OrgFile -> OrgFile
+metan n prop val (OrgFile { meta, doc }) =
+    OrgFile
+        { meta : meta # Map.insert (n /\ prop) val
+        , doc : doc
+        }
 
 
 quote :: String -> Block
@@ -278,3 +296,8 @@ addSection' = addSection P.root
 
 addBlock' :: forall a. OrgFile -> Block -> Path a /\ OrgFile
 addBlock' = addBlock P.root
+
+
+isDocEmpty :: OrgDoc -> Boolean
+isDocEmpty (OrgDoc { zeroth, sections }) =
+    Array.length zeroth == 0 && Array.length sections == 0

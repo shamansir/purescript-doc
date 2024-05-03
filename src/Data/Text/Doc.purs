@@ -140,12 +140,15 @@ sp :: Doc -> Doc -> Doc
 sp x y = x <> text " " <> y
 br :: Doc -> Doc -> Doc
 br x y = x <> break <> y
+brbr :: Doc -> Doc -> Doc
+brbr x y = x <> break <> break <> y
 -- spbr :: Doc -> Doc -> Doc
 -- spbr x y = x <> (break) <> y
 
 
 infixr 6 sp as <+>
 infixr 6 br as </>
+infixr 6 brbr as <//>
 -- infixr 6 spbr as <+/>
 
 
