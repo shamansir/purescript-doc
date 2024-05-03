@@ -2,12 +2,13 @@ module Test.Org.Export.Org where
 
 import Prelude
 
-import Effect.Class (liftEffect)
+import Effect.Class (liftEffect, class MonadEffect)
+import Control.Monad.Error.Class (class MonadThrow)
 
 import Data.Maybe (Maybe(..))
 -- import Data.Text.Doc as D
 import Data.Text.Doc as D
-import Data.Text.Format.Org.Types (Check(..))
+import Data.Text.Format.Org.Types (OrgFile, Check(..))
 import Data.Text.Format.Org.Construct as Org
 import Data.Text.Format.Org.Render as R
 
@@ -31,7 +32,21 @@ spec = do
         (read_ $ write Org.empty) `shouldEqual` (Just Org.empty)
     -}
 
-    it "works with the syntax sample" $ do
-        orgTest01 <- liftEffect $ readTextFile UTF8 "./test/examples/org-test-01.org"
-        (D.render { break : D.All, indent : D.Spaces 4 } $ R.layout Org.empty)
-            `shouldEqual` orgTest01
+    it "works with the syntax sample" $
+        qtest "01-empty" $ Org.empty
+
+    it "works with the meta sample" $
+        qtest "02-meta"
+            $ Org.metan 1 "title" "The glories of Org"
+            $ Org.metan 2 "author" "A. Org Author"
+            $ Org.empty
+
+
+qtest
+    :: forall (m ∷ Type -> Type)
+     . Bind m => MonadEffect m => MonadThrow _ m
+    => String -> OrgFile -> m Unit
+qtest fileSlug orgFile = do
+    orgTestText <- liftEffect $ readTextFile UTF8 ("./test/examples/org-test-" <> fileSlug <> ".org")
+    (D.render { break : D.All, indent : D.Spaces 4 } $ R.layout orgFile)
+            `shouldEqual` orgTestText
