@@ -5,6 +5,7 @@ import Prelude
 import Data.Newtype (unwrap)
 import Data.Map as Map
 import Data.Array as Array
+import Data.Array.NonEmpty as NEA
 import Data.Tuple.Nested ((/\), type (/\))
 
 import Data.Text.Format.Org.Types (OrgFile(..), OrgDoc(..))
@@ -31,5 +32,28 @@ layout (OrgFile { meta, doc }) =
 
 
 layoutDoc :: Int -> OrgDoc -> Doc
-layoutDoc indent doc =
+layoutDoc indent (OrgDoc { zeroth, sections }) =
+    sections # map (layoutSection indent) # Array.foldl (<>) D.nil
+
+
+layoutBlock :: Int -> Org.Block -> Doc
+layoutBlock indent block =
     D.nil
+
+
+layoutSection :: Int -> Org.Section -> Doc
+layoutSection indent (Org.Section section) =
+    let
+        headingLine =
+            section.heading # NEA.toArray # map layoutWords # Array.foldl (<>) D.nil
+    in
+        if not $ Org.isDocEmpty section.doc then
+            headingLine </> layoutDoc indent section.doc
+        else
+            headingLine
+
+
+layoutWords :: Org.Words -> Doc
+layoutWords = case _ of
+    Org.Plain plain -> D.text plain
+    _ -> D.nil

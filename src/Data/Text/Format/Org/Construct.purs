@@ -2,15 +2,16 @@ module Data.Text.Format.Org.Construct where
 
 import Prelude
 
-import Data.Maybe (Maybe(..))
-import Data.Map (empty, insert, size) as Map
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Map (empty, insert, size, fromFoldable) as Map
 import Data.Enum (class BoundedEnum)
 import Data.Tuple (curry, uncurry)
 import Data.Foldable (class Foldable)
 import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
-import Data.Array (toUnfoldable, length) as Array
+import Data.Array (toUnfoldable, length, mapWithIndex) as Array
 import Data.Array.NonEmpty as NEA
+import Data.String (joinWith, toUpper) as String
 
 
 import Data.Text.Format.Org.Types
@@ -43,19 +44,22 @@ f :: OrgDoc -> OrgFile
 f = f_ []
 
 f_ :: Array Property -> OrgDoc -> OrgFile
-f_ _ doc = OrgFile { meta : Map.empty, doc : doc }
+f_ props doc =
+    OrgFile { meta : Map.fromFoldable $ Array.mapWithIndex extractProp props, doc }
+    where
+    extractProp idx (Property (PropName name) (PropValue value)) = (idx /\ name) /\ value
 
 
 ds :: Array Section -> OrgDoc
-ds _ = OrgDoc { zeroth : [], sections : [] }
+ds sections = OrgDoc { zeroth : [], sections }
 
 
 db :: Array Block -> OrgDoc
-db _ = OrgDoc { zeroth : [], sections : [] }
+db blocks = OrgDoc { zeroth : blocks, sections : [] }
 
 
 dbs :: Array Block -> Array Section -> OrgDoc
-dbs _ _ = OrgDoc { zeroth : [], sections : [] }
+dbs blocks sections = OrgDoc { zeroth : blocks, sections }
 
 
 meta :: String -> String -> OrgFile -> OrgFile
@@ -72,6 +76,18 @@ metan n prop val (OrgFile { meta, doc }) =
         { meta : meta # Map.insert (n /\ prop) val
         , doc : doc
         }
+
+
+data ProgressStep = Progress String
+data FinishStep = Finish String
+
+
+todoSequence :: Array ProgressStep -> Array FinishStep -> OrgFile -> OrgFile
+todoSequence pss fss =
+    meta "SEQ_TODO" $ String.joinWith " " (pssToString <$> pss) <> " | " <> String.joinWith " " (fssToString <$> fss)
+    where
+     pssToString (Progress str) = String.toUpper str
+     fssToString (Finish str) = String.toUpper str
 
 
 quote :: String -> Block
@@ -138,6 +154,10 @@ text :: String -> Words
 text = Plain
 
 
+br :: Words
+br = Plain "\n" -- FIXME: BreakW
+
+
 sec :: Int -> Array Words -> OrgDoc -> Section
 sec level heading doc =
     Section
@@ -145,7 +165,7 @@ sec level heading doc =
         , priority : Nothing
         , cookie : Nothing
         , check : Nothing
-        , heading : NEA.singleton $ b "" -- FIXME
+        , heading : NEA.fromArray heading # fromMaybe (NEA.singleton $ text "")
         , level
         , tags : []
         , planning :
@@ -159,6 +179,11 @@ sec level heading doc =
         , drawers : []
         , doc
         }
+
+
+ssec :: Int -> Array Words -> OrgDoc -> OrgDoc
+ssec level heading doc =
+    ds [ sec level heading doc ]
 
 
 set :: Todo -> Section -> Section

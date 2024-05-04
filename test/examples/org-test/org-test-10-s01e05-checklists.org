@@ -10,7 +10,7 @@
 *** 2016-06-11 Saturday [%]
 - [X] Record screencast for orgmode tutorial
 - [X] Do the laundry
-- [X] Vacuum the house
+- [-] Vacuum the house
 - [ ] Wash the car -> it was raining
 - [X] Practice bass
 - [X] Get birtday present

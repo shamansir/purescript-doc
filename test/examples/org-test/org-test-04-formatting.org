@@ -1,0 +1,97 @@
+* Welcome to Org-mode
+** Sub-heading
+Each extra ~*~ increases the depth by one level.
+
+* TODO Promulgate Org to the world
+** TODO Create a quickstart guide
+
+To markup text in Org, simply surround it with one or more marker characters.
+*Bold*, /italic/ and _underline_ are fairly intuitive, and the ability to use
++strikethrough+ is a plus.  You can _/*combine*/_ the basic markup in any
+order, however ~code~ and =verbatim= need to be the *_~inner-most~_* markers
+if they are present since their contents are interpreted =_literally_=.
+
+To buy:
+1. Milk
+2. Eggs
+   - Organic
+3. Cheese
+   + Parmesan
+   + Mozzarella
+
+
+- [ ] not started
+- [-] in progress
+- [X] complete
+
+
+- [ ] fruits :: get apples
+- [X] veggies :: get carrots
+
+
+[[https://orgmode.org][a nice website]]
+[[file:~/Pictures/dank-meme.png]]
+[[earlier heading][an earlier heading in the document]]
+
+[[https://upload.wikimedia.org/wikipedia/commons/5/5d/Konigsberg_bridges.png]]
+
+#+begin_example
+monospace
+#+end_example
+
+#+begin_src emacs-lisp
+(message "Hello world")
+#+end_src
+
+| I    | am  | a    | table |
+| with | two | rows | !     |
+
+
+| Tool         | Literate programming? | Reproducible Research? | Languages |
+|--------------+-----------------------+------------------------+-----------|
+| Javadoc      | partial               | no                     | Java      |
+| Haskell .lhs | partial               | no                     | Haskell   |
+| noweb        | yes                   | no                     | any       |
+| Sweave       | partial               | yes                    | R         |
+| Org-mode     | yes                   | yes                    | any       |
+
+# A line comment
+
+Example of an @@comment:inline@@ comment.
+
+Inline comments are used for end of line comments. @@comment:~#~ won't
+work@@ Since # only only works if preceeded by a newline follow by
+whitespace.
+
+#+begin_comment
+This is a block comment.
+It can span multiple line.
+As well as other markup.
+#+begin_src emacs-lisp
+(+ 1 2)
+#+end_src
+#+end_comment
+
+* A top level heading
+** COMMENT This section and subsections are commented out
+*** This heading inherits the =COMMENT= keyword
+This text is commented out
+** This heading is not commented
+This text will be exported and code blocks will run
+
+
+#+macro: attn _*/$1/*_
+{{{attn(Attention! This text gets all the markup!)}}}
+
+#+html_head: <style>.red{color:red;}</style>
+#+latex_header: \usepackage{xcolor}
+#+macro: red @@html:<span class="red">$1</span>@@@@latex:\textcolor{red}{$1}@@
+Regular text. {{{red(This text will be red.)}}} More regular text.
+
+<1997-11-03 Mon 19:15>
+<%%(diary-float t 4 2)>
+<%%(diary-float t 4 2) 12:00-14:00>
+[2004-08-24 Tue]--[2004-08-26 Thu]
+<2012-02-08 Wed 20:00 ++1d>
+<2030-10-05 Sat +1m -3d>
+<2012-03-29 Thu ++1y/2y>
