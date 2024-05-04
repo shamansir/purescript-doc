@@ -13,7 +13,7 @@
 
 * Consulting jobs
 ** NEXT Time management training for ACME company [/]
-- [ ] Day 1 : Brain dump, write everything down
+- [X] Day 1 : Brain dump, write everything down
 - [ ] Day 2 : Split layer tasks into smaller tasks
 - [ ] Day 3 : Weekly review
 - [ ] Day 4 : Setting goals
@@ -58,7 +58,7 @@ I have chain ordered, needs to be delivered
 *** TODO Mount chain
 You probably need to re adjust the gear shifting
 
-* Family business
+* Family business :FAMILY:
 ** NEXT Get a birthday gift for wife
 SCHEDULED: <2016-06-11 Sa> DEADLINE: <2016-06-25 Sa>
 ** NEXT Watch concert of your kid in school
