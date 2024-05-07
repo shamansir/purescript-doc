@@ -129,8 +129,21 @@ spec = do
                             $ Org.set TODO $ Org.sece1 2 $ Org.text "Create a quickstart guide"  
                     ]
 
+    it "04. formatting: blocks (b)" $
+        qtest "04b-formatting-blocks"
+            $ Org.f 
+                $ Org.db 
+                    [ Org.para 
+                        [ Org.text "To markup text in Org, simply surround it with one or more marker characters."
+                        , Org.br, Org.b "Bold", Org.text ", ", Org.i "italic", Org.text " and ", Org.u "underline", Org.text " are fairly intuitive, and the ability to use ", Org.br
+                        , Org.s "strikethrough", Org.text " is a plus.  You can ", Org.text "combine", Org.text " the basic markup in any", Org.br
+                        , Org.text "order, however ", Org.ic "code", Org.text " and ", Org.v "verbatim", Org.text " need to be the ", Org.text "inner-most", Org.text " markers", Org.br
+                        , Org.text "if they are present since their contents are interpreted ", Org.text "literally", Org.text "."
+                        ]
+                    ]
+
     it "04. formatting: lists (c)" $ 
-        qtest "04c-formatting-lists"              
+        qtest "04c-formatting-lists"
             $ Org.f
                 $ Org.dbs 
                     [ Org.para1 $ Org.text "To buy:" 

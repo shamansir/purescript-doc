@@ -25,6 +25,7 @@ import Data.Variant (match) as Variant
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String.CodePoints (codePointFromChar)
 import Data.Newtype (class Newtype, wrap, unwrap)
+import Data.Bifunctor (lmap)
 
 import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields, class WriteForeignFields, class ReadForeignVariant, class WriteForeignVariant, readImpl, writeImpl)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
@@ -59,13 +60,19 @@ data Block
     -- | JoinB Block Block
 
 
+data MarkupKey 
+    = Bold 
+    | Italic
+    | Highlight 
+    | Underline
+    | Verbatim
+    | InlineCode
+    | Strike
+    | And MarkupKey MarkupKey
+
+
 data Words
-    = Bold String
-    | Italic String
-    | Highlight String
-    | Underline String
-    | Verbatim String
-    | Strike String
+    = Marked MarkupKey String
     | Link URL (Maybe String)
     | Image URL
     | Punct CodePoint
@@ -408,19 +415,86 @@ instance JsonOverVariant BlockRow Block where
     fromVariant = blockFromVariant
 
 
+type MarkupKeyRow =
+    ( bold :: Case
+    , italic :: Case
+    , highlight :: Case
+    , underline :: Case
+    , verbatim :: Case
+    , inlineCode :: Case
+    , strike :: Case
+    , error :: Case
+    )    
+
+
+readMarkupKey :: Foreign -> F MarkupKey
+readMarkupKey =
+    readMatchImpl
+        (Proxy :: _ MarkupKeyRow)
+        { bold : Variant.matched Bold
+        , italic : Variant.matched Italic
+        , highlight : Variant.matched Highlight
+        , underline : Variant.matched Underline
+        , verbatim : Variant.matched Verbatim
+        , inlineCode : Variant.matched InlineCode
+        , strike : Variant.matched Strike
+        , error : Variant.matched Strike -- FIXME
+        }    
+
+
+markupKeyToVariant :: MarkupKey -> Variant MarkupKeyRow
+markupKeyToVariant = case _ of
+    Bold -> Variant.mark (Proxy :: _ "bold")
+    Italic -> Variant.mark (Proxy :: _ "italic")
+    Highlight -> Variant.mark (Proxy :: _ "highlight")
+    Underline -> Variant.mark (Proxy :: _ "underline")
+    Verbatim -> Variant.mark (Proxy :: _ "verbatim")
+    InlineCode -> Variant.mark (Proxy :: _ "inlineCode")
+    Strike -> Variant.mark (Proxy :: _ "strike")
+    And _ _ -> Variant.mark (Proxy :: _ "error")
+
+
+markupKeyFromVariant :: Variant MarkupKeyRow -> MarkupKey
+markupKeyFromVariant =
+    Variant.match
+        { bold : Variant.uncase Bold
+        , italic : Variant.uncase Italic
+        , highlight : Variant.uncase Highlight
+        , underline : Variant.uncase Underline
+        , verbatim : Variant.uncase Verbatim
+        , inlineCode : Variant.uncase InlineCode
+        , strike : Variant.uncase Strike
+        , error : Variant.uncase Strike -- FIXME
+        }
+
+
+markupKeyToRowArray :: MarkupKey -> Array (Variant MarkupKeyRow)
+markupKeyToRowArray = case _ of 
+    And keyA keyB -> markupKeyToRowArray keyA <> markupKeyToRowArray keyB
+    key -> Array.singleton $ markupKeyToVariant key    
+
+
+rowArrayToMarkupKey :: Array (Variant MarkupKeyRow) -> MarkupKey
+rowArrayToMarkupKey =
+    const Bold -- FIXME -- Array.fold
+
+
+instance ReadForeign MarkupKey where readImpl = readImplVar
+instance WriteForeign MarkupKey where writeImpl = writeImplVar
+instance JsonOverVariant MarkupKeyRow MarkupKey where
+    readForeign = readMarkupKey
+    toVariant = markupKeyToVariant
+    fromVariant = markupKeyFromVariant        
+
+
 type WordsRow =
-    ( bold :: Case1 String
-    , italic :: Case1 String
-    , highlight :: Case1 String
-    , underline :: Case1 String
-    , verbatim :: Case1 String
-    , strike :: Case1 String
-    , link :: Case2 URL (Maybe String)
+    ( link :: Case2 URL (Maybe String)
     , image :: Case1 URL
     , punct :: Case1 Char
     , plain :: Case1 String
     , markup :: Case1 String
     , break :: Case
+    , marked :: Case2 (Array (Variant MarkupKeyRow)) String
     -- , join :: Words /\ Words
     )
 
@@ -429,15 +503,10 @@ readWords :: Foreign -> F Words
 readWords =
     readMatchImpl
         (Proxy :: _ WordsRow)
-        { bold : Variant.match1 Bold
-        , italic : Variant.match1 Italic
-        , highlight : Variant.match1 Highlight
-        , underline : Variant.match1 Underline
-        , verbatim : Variant.match1 Verbatim
+        { marked : Variant.match2 $ Marked <<< rowArrayToMarkupKey
         , link : Variant.match2 Link
         , image : Variant.match1 Image
         , punct : Variant.match1 $ Punct <<< codePointFromChar
-        , strike : Variant.match1 Strike
         , plain : Variant.match1 Plain
         , markup : Variant.match1 Markup
         , break : Variant.matched Break
@@ -447,33 +516,23 @@ readWords =
 
 wordsToVariant :: Words -> Variant WordsRow
 wordsToVariant = case _ of
-    Bold b -> Variant.select1 (Proxy :: _ "bold") b
-    Italic i -> Variant.select1 (Proxy :: _ "italic") i
-    Highlight hl -> Variant.select1 (Proxy :: _ "highlight") hl
-    Underline ul -> Variant.select1 (Proxy :: _ "underline") ul
-    Verbatim v -> Variant.select1 (Proxy :: _ "verbatim") v
+    Marked key s -> Variant.select2 (Proxy :: _ "marked") (markupKeyToRowArray key) s
     Link url mbStr -> Variant.select2 (Proxy :: _ "link") url mbStr
     Image url -> Variant.select1 (Proxy :: _ "image") url
     Punct _ -> Variant.select1 (Proxy :: _ "punct") $ ':' -- FIXME
-    Strike s -> Variant.select1 (Proxy :: _ "strike") s
     Plain p -> Variant.select1 (Proxy :: _ "plain") p
     Markup mup -> Variant.select1 (Proxy :: _ "markup") mup
     Break -> Variant.mark (Proxy :: _ "break")
-    JoinW wA wB -> Variant.select1 (Proxy :: _ "bold") "JOIN" -- FIXME
+    JoinW wA wB -> Variant.select1 (Proxy :: _ "plain") "JOIN" -- FIXME
 
 
 wordsFromVariant :: Variant WordsRow -> Words
 wordsFromVariant =
     Variant.match
-        { bold : Variant.uncase1 >>> Bold
-        , italic : Variant.uncase1 >>> Italic
-        , highlight : Variant.uncase1 >>> Highlight
-        , underline : Variant.uncase1 >>> Underline
-        , verbatim : Variant.uncase1 >>> Verbatim
+        { marked : Variant.uncase2 >>> lmap rowArrayToMarkupKey >>> Tuple.uncurry Marked
         , link : Variant.uncase2 >>> Tuple.uncurry Link
         , image : Variant.uncase1 >>> Image
         , punct : Variant.uncase1 >>> codePointFromChar >>> Punct
-        , strike : Variant.uncase1 >>> Strike
         , plain : Variant.uncase1 >>> Plain
         , markup : Variant.uncase1 >>> Markup
         , break : Variant.uncase Break

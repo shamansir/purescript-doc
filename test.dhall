@@ -13,6 +13,7 @@ in conf // {
     , "ordered-collections"
     , "node-buffer"
     , "node-fs"
+    , "bifunctors"
     , "debug"
     ]
 }

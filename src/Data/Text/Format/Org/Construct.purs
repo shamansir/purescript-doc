@@ -178,27 +178,31 @@ blank = para1 $ text ""
 
 
 b :: String -> Words
-b = Bold
+b = Marked Bold
 
 
 i :: String -> Words
-i = Italic
+i = Marked Italic
 
 
 hl :: String -> Words
-hl = Highlight
+hl = Marked Highlight
 
 
 u :: String -> Words
-u = Underline
+u = Marked Underline
 
 
 v :: String -> Words
-v = Verbatim
+v = Marked Verbatim
+
+
+ic :: String -> Words
+ic = Marked InlineCode
 
 
 s :: String -> Words
-s = Strike
+s = Marked Strike
 
 
 a :: URL -> String -> Words

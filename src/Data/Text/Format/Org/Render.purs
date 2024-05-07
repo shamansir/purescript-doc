@@ -142,6 +142,16 @@ layoutSection (Org.Section section) =
 layoutWords :: Org.Words -> Doc
 layoutWords = case _ of
     Org.Plain plain -> D.text plain
+    Org.Marked mk s -> 
+        case mk of 
+            Org.Bold -> D.wrap "*" $ D.text s
+            Org.Italic -> D.wrap "/" $ D.text s
+            Org.Underline -> D.wrap "_" $ D.text s
+            Org.Strike -> D.wrap "+" $ D.text s
+            Org.InlineCode -> D.wrap "~" $ D.text s
+            Org.Verbatim -> D.wrap "=" $ D.text s
+            Org.Highlight -> D.text s -- FIXME
+            Org.And _ _ -> D.text s -- FIXME
     Org.Break -> D.break
     _ -> D.nil
 
