@@ -5,10 +5,11 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty as NEA
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.String (toUpper) as String
 import Data.String.CodeUnits (singleton) as String
+import Data.Char (fromCharCode)
 import Data.Text.Doc (Doc, (<+>), (</>), (<//>))
 import Data.Text.Doc as D
 import Data.Text.Format.Org.Construct as Org
@@ -154,7 +155,7 @@ layoutItems indent (Org.ListItems lt items) =
             Org.Hyphened -> "-"
             Org.Numbered -> show (idx + 1) <> "."
             Org.NumberedFrom n -> show (idx + n) <> "."
-            Org.Alphed -> "a." -- TODO!
+            Org.Alphed -> (fromMaybe "?" $ String.singleton <$> (fromCharCode $ 0x61 + idx)) <> "."
             # D.text
         checkPrefix = case _ of 
             Org.Uncheck -> "[ ]"

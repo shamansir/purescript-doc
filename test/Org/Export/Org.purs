@@ -157,7 +157,14 @@ spec = do
                         [ Org.tagi "fruits" $ Org.check Uncheck $ Org.item1 $ Org.text "get apples" 
                         , Org.tagi "veggies" $ Org.check Check $ Org.item1 $ Org.text "get carrots" 
                         ]
-                    , Org.blank                        
+                    , Org.blank   
+                    , Org.list Alphed 
+                        [ Org.item1 $ Org.text "First"
+                        , Org.item1 $ Org.text "Second"
+                        , Org.item1 $ Org.text "Third"
+                        , Org.item1 $ Org.text "Fourth"
+                        ]                        
+                    , Org.blank
                     , Org.list Hyphened 
                         [ Org.item1 $ Org.text "item" ] 
                     , Org.list (NumberedFrom 3) 

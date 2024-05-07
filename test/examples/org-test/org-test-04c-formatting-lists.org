@@ -13,6 +13,11 @@ To buy:
 - [ ] fruits :: get apples
 - [X] veggies :: get carrots
 
+a. First
+b. Second
+c. Third
+d. Fourth
+
 - item
 3. [@3] set to three
 + [-] tag :: item contents
