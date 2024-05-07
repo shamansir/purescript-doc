@@ -71,7 +71,7 @@ data Words
     | Punct CodePoint
     | Plain String
     | Markup String
-    -- | BreakW
+    | Break
     -- | Space
     -- | Indent Int
     | JoinW Words Words
@@ -152,6 +152,7 @@ newtype Section =
         , planning :: Planning
         , props :: Map String String
         , drawers :: Array Drawer
+        , comment :: Boolean
         , doc :: OrgDoc
         }
 
@@ -187,7 +188,7 @@ data ListType
     | Alphed
 
 
-data TableRow = Break | Row (NonEmptyArray TableColumn)
+data TableRow = BreakT | Row (NonEmptyArray TableColumn)
 
 
 data TableColumn = Empty | Column (NonEmptyArray Words)
@@ -406,6 +407,7 @@ type WordsRow =
     , punct :: Case1 Char
     , plain :: Case1 String
     , markup :: Case1 String
+    , break :: Case
     -- , join :: Words /\ Words
     )
 
@@ -425,6 +427,7 @@ readWords =
         , strike : Variant.match1 Strike
         , plain : Variant.match1 Plain
         , markup : Variant.match1 Markup
+        , break : Variant.matched Break
         -- , join : Variant.match2 JoinW
         }
 
@@ -442,6 +445,7 @@ wordsToVariant = case _ of
     Strike s -> Variant.select1 (Proxy :: _ "strike") s
     Plain p -> Variant.select1 (Proxy :: _ "plain") p
     Markup mup -> Variant.select1 (Proxy :: _ "markup") mup
+    Break -> Variant.mark (Proxy :: _ "break")
     JoinW wA wB -> Variant.select1 (Proxy :: _ "bold") "JOIN" -- FIXME
 
 
@@ -459,6 +463,7 @@ wordsFromVariant =
         , strike : Variant.uncase1 >>> Strike
         , plain : Variant.uncase1 >>> Plain
         , markup : Variant.uncase1 >>> Markup
+        , break : Variant.uncase Break
         -- , join : Variant.uncase2 JoinW  -- FIXME
         }
 
@@ -1007,6 +1012,7 @@ type SectionRow =
     , level :: Int
     , planning :: Record PlanningRow
     , props :: Map String String
+    , comment :: Boolean
     -- , drawers :: Array Drawer -- FIXME: TODO
     , doc :: Record DocRow
     )
@@ -1061,6 +1067,7 @@ emptySection =
         , planning : emptyPlanning
         , props : Map.empty
         , drawers : []
+        , comment : false
         , doc : emptyDoc
         }
 
@@ -1078,6 +1085,7 @@ convertSection sectionId (Section section) =
         , level : section.level
         , planning : convert section.planning
         , props : Map.empty -- FIXME: TODO
+        , comment : section.comment
         , doc : convertedDoc
         }
     /\ sectionsMap
@@ -1096,6 +1104,7 @@ loadSection allSections section =
         , planning : load section.planning
         , drawers : [] -- FIXME: TODO
         , props : Map.empty  -- FIXME: TODO
+        , comment : section.comment
         , doc : loadDoc allSections section.doc
         }
 

@@ -1,10 +1,10 @@
 An introduction.
 * A Heading
-Some text.
+  Some text.
 ** Sub-Topic 1
 ** Sub-Topic 2
 *** Additional entry
-*
-** DONE
+* 
+** DONE 
 *** Some e-mail
 **** TODO [#A] COMMENT Title :tag:a2%:

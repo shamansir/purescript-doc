@@ -8,7 +8,7 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Data.Maybe (Maybe(..))
 -- import Data.Text.Doc as D
 import Data.Text.Doc as D
-import Data.Text.Format.Org.Types (OrgFile, Check(..))
+import Data.Text.Format.Org.Types (OrgFile, Check(..), Todo(..), Priority(..))
 import Data.Text.Format.Org.Construct as Org
 import Data.Text.Format.Org.Render as R
 
@@ -32,32 +32,39 @@ spec = do
         (read_ $ write Org.empty) `shouldEqual` (Just Org.empty)
     -}
 
-    it "works with the syntax sample" $
+    it "01. works with the syntax sample" $
         qtest "01-empty" $ Org.empty
 
-    it "works with the meta sample (a)" $
+    it "02. works with the meta sample (a)" $
         qtest "02a-meta"
             $ Org.metan 1 "title" "The glories of Org"
             $ Org.metan 2 "author" "A. Org Author"
             $ Org.empty
 
-    it "works with the meta sample (b)" $
+    it "02. works with the meta sample (b)" $
         qtest "02b-meta-special"
             $ Org.todoSequence
                 ( Org.Progress <$> [ "NEXT", "TODO", "WAITING", "SOMEDAY", "PROJ" ])
                 ( Org.Finish   <$> [ "DONE", "CANCELLED" ])
             $ Org.empty
 
-    it "works with basic strucure (a)" $
-        qtest "03a-basic-structuring"
+    it "03. works with basic headings and levels (a)" $
+        qtest "03a-headings-with-no-content"
             $ Org.f
                 $ Org.ds
                     [ Org.sec 1 [ Org.text "First Level Heading" ] $
                         Org.ssec 2 [ Org.text "Second Level Heading" ] $
                             Org.ssec 3 [ Org.text "Third Level Heading" ] $
                                 Org.ssec 4 [ Org.text "Fourth Level Heading" ] $
-                                    Org.db [ Org.para [ Org.br ] ]
-                    , Org.sec 1 [ Org.text "First Level Heading" ] $
+                                    Org.emptyDoc
+                                    -- Org.db [ Org.para [ Org.br ] ]
+                    ]
+
+    it "03. works with heading with some content (b)" $
+        qtest "03b-headings-with-content"
+            $ Org.f
+                $ Org.ds
+                    [ Org.sec 1 [ Org.text "First Level Heading" ] $
                         Org.dbs
                             [ Org.para
                                 [ Org.text "Some text here", Org.br
@@ -82,16 +89,45 @@ spec = do
                     ]
 
 
-    it "works with basic strucure (b)" $
-        qtest "03b-basic-structuring"
+    it "03. works with basic structure (c)" $
+        qtest "03c-basic-structuring"
             $ Org.f
-                $ Org.ds
-                    [ Org.sec 1 [] $
-                        Org.ssec 2 [ ] $ -- FIXME: use TODO tag here
-                            Org.ssec 3 [ Org.text "Some e-mail" ] $
-                                Org.ssec 4 [ Org.text "Title" ] $
-                                    Org.emptyDoc
+                $ Org.dbs
+                    [ Org.para1 $ Org.text "An introduction." ]
+                    [ Org.sec1 1 (Org.text "A Heading") $
+                        Org.dbs
+                            [ Org.para1 $ Org.text "Some text." ]
+                            [ Org.sece1 2 (Org.text "Sub-Topic 1")
+                            , Org.sece1 2 (Org.text "Sub-Topic 2")
+                            , Org.sece1 3 (Org.text "Additional entry")
+                            ]
+                    , Org.sec1 1 (Org.text "") $
+                        Org.ds
+                            [ Org.set DONE $ Org.sec1 2 (Org.text "") $
+                                Org.ssec 3 [ Org.text "Some e-mail" ] $
+                                    Org.ds
+                                        [ Org.sece1 4 (Org.text "Title")
+                                            # Org.set TODO
+                                            # Org.priority (Alpha 'A')
+                                            # Org.tag "a2%"
+                                            # Org.tag "tag"
+                                            # Org.comment
+                                        ]
+                            ]
                     ]
+
+
+    it "04. formatting: headings (c)" $
+        qtest "04a-formatting-headings"
+            $ Org.f
+                $ Org.ds 
+                    [ Org.sec1 1 (Org.text "Welcome to Org-mode")
+                        $ Org.ssec1 2 (Org.text "Sub-heading") 
+                            $ Org.db1 $ Org.para [ Org.text "Each extra ~*~ increases the depth by one level.", Org.br ]
+                    , Org.set TODO $ Org.sec1 1 (Org.text "Promulgate Org to the world")
+                        $ Org.ds1 
+                            $ Org.set TODO $ Org.sece1 2 $ Org.text "Create a quickstart guide"  
+                    ]                    
 
 
 qtest
@@ -100,5 +136,5 @@ qtest
     => String -> OrgFile -> m Unit
 qtest fileSlug orgFile = do
     orgTestText <- liftEffect $ readTextFile UTF8 ("./test/examples/org-test/org-test-" <> fileSlug <> ".org")
-    (D.render { break : D.All, indent : D.Spaces 4 } $ R.layout orgFile)
+    (D.render { break : D.All, indent : D.Spaces 1 } $ R.layout orgFile)
             `shouldEqual` orgTestText

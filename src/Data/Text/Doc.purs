@@ -37,6 +37,8 @@ data Indent
     = Empty
     | Spaces Int
     | Custom String
+    -- | VariableN (Int -> Int) -- take current level of indent and return the required number of indents
+    -- | VariableS (Int -> String) -- take current level of indent and return the required string for indentation
     | Tab
 
 
@@ -62,6 +64,7 @@ type Options =
 type Options' =
     { break :: String
     , indent :: String
+    -- , indent :: Int -> String -- could be relative
     }
 
 

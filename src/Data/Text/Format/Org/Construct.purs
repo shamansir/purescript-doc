@@ -9,9 +9,11 @@ import Data.Tuple (curry, uncurry)
 import Data.Foldable (class Foldable)
 import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
-import Data.Array (toUnfoldable, length, mapWithIndex) as Array
+import Data.Array ((:))
+import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete) as Array
 import Data.Array.NonEmpty as NEA
 import Data.String (joinWith, toUpper) as String
+import Data.Newtype (unwrap, wrap)
 
 
 import Data.Text.Format.Org.Types
@@ -54,8 +56,16 @@ ds :: Array Section -> OrgDoc
 ds sections = OrgDoc { zeroth : [], sections }
 
 
+ds1 :: Section -> OrgDoc
+ds1 = ds <<< Array.singleton
+
+
 db :: Array Block -> OrgDoc
 db blocks = OrgDoc { zeroth : blocks, sections : [] }
+
+
+db1 :: Block -> OrgDoc
+db1 = db <<< Array.singleton
 
 
 dbs :: Array Block -> Array Section -> OrgDoc
@@ -111,7 +121,11 @@ table = quote "" -- FIXME
 
 
 para :: Array Words -> Block
-para _ = quote "" -- FIXME
+para = Paragraph <<< fromMaybe (NEA.singleton $ Plain "\n") <<< NEA.fromArray
+
+
+para1 :: Words -> Block
+para1 = Paragraph <<< NEA.singleton
 
 
 b :: String -> Words
@@ -155,7 +169,7 @@ text = Plain
 
 
 br :: Words
-br = Plain "\n" -- FIXME: BreakW
+br = Break
 
 
 sec :: Int -> Array Words -> OrgDoc -> Section
@@ -177,8 +191,21 @@ sec level heading doc =
                 }
         , props : Map.empty
         , drawers : []
+        , comment : false
         , doc
         }
+
+
+sec1 :: Int -> Words -> OrgDoc -> Section
+sec1 l = sec l <<< Array.singleton
+
+
+sece :: Int -> Array Words -> Section
+sece l ws = sec l ws emptyDoc
+
+
+sece1 :: Int -> Words -> Section
+sece1 l = sece l <<< Array.singleton
 
 
 ssec :: Int -> Array Words -> OrgDoc -> OrgDoc
@@ -186,12 +213,23 @@ ssec level heading doc =
     ds [ sec level heading doc ]
 
 
+ssec1 :: Int -> Words -> OrgDoc -> OrgDoc    
+ssec1 l = ssec l <<< Array.singleton
+
+
+__qset f (Section sec) = Section $ f sec --  unwrap >>> f >> wrap
+
+
+__qplan f =
+    __qset $ \sec -> sec { planning = Planning $ f $ case sec.planning of Planning p -> f p }
+
+
 set :: Todo -> Section -> Section
-set _ = identity -- TODO
+set val = __qset _ { todo = Just val }
 
 
 priority :: Priority -> Section -> Section
-priority _ = identity -- TODO
+priority val = __qset _ { priority = Just val }
 
 
 low :: Section -> Section
@@ -203,55 +241,59 @@ hi = identity -- TODO
 
 
 cookie :: Cookie -> Section -> Section
-cookie _ = identity -- TODO
+cookie val = __qset _ { cookie = Just val }
 
 
 tag :: String -> Section -> Section
-tag _ = identity -- TODO
+tag s = __qset $ \sec -> sec { tags = s : sec.tags }
 
 
 untag :: String -> Section -> Section
-untag _ = identity -- TODO
+untag s = __qset $ \sec -> sec { tags = sec.tags # Array.delete s }
 
 
 level :: Int -> Section -> Section
-level _ = identity -- TODO
+level val = __qset _ { level = val }
 
 
 inc :: Section -> Section
-inc = identity -- TODO
+inc = __qset $ \sec -> sec { level = min 20 $ sec.level + 1 }
 
 
 dec :: Section -> Section
-dec = identity -- TODO
+dec = __qset $ \sec -> sec { level = max 0 $ sec.level - 1 }
 
 
 close :: OrgDateTime -> Section -> Section
-close _ = identity -- TODO
+close dt = __qplan $ _ { closed = Just dt }
 
 
 deadline :: OrgDateTime -> Section -> Section
-deadline _ = identity -- TODO
+deadline dt = __qplan $ _ { deadline = Just dt }
 
 
 schedule :: OrgDateTime -> Section -> Section
-schedule _ = identity -- TODO
+schedule dt = __qplan $ _ { scheduled = Just dt } -- TODO
 
 
 timestamp :: OrgDateTime -> Section -> Section
-timestamp _ = identity -- TODO
+timestamp dt = __qplan $ _ { timestamp = Just dt } -- TODO -- TODO
 
 
 wprop :: Property -> Section -> Section
-wprop _ = identity
+wprop _ = identity -- TODO
 
 
 drawer :: Drawer -> Section -> Section
-drawer _ = identity
+drawer _ = identity -- TODO
 
 
 note :: String -> Section -> Section
-note _ = identity -- LOGBOOK
+note _ = identity  -- TODO -- LOGBOOK
+
+
+comment :: Section -> Section
+comment = __qset _ { comment = true }
 
 
 {-

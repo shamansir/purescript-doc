@@ -1,13 +1,8 @@
 * First Level Heading
-** Second Level Heading
-*** Third Level Heading
-**** Fourth Level Heading
-
-* First Level Heading
   Some text here
   And another line
-
-  And another parapgraph
+  
+  And another paragraph
 ** Second Level Heading
    Here some text as well
 *** Third Level Heading

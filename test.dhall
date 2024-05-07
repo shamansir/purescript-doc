@@ -13,5 +13,6 @@ in conf // {
     , "ordered-collections"
     , "node-buffer"
     , "node-fs"
+    , "debug"
     ]
 }
