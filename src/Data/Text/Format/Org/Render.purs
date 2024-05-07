@@ -53,7 +53,7 @@ layoutBlock deep = case _ of
     Org.Quote str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
     Org.Example str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
     Org.Code maybeLang str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
-    Org.List _ -> D.text "LIST"  -- TODO
+    Org.List items -> layoutItems deep items
     Org.Table _ -> D.text "TABLE"  -- TODO
     Org.Paragraph words ->
         words
@@ -145,6 +145,51 @@ layoutWords = case _ of
     _ -> D.nil
 
 
+layoutItems :: Deep -> Org.ListItems -> Doc
+layoutItems deep (Org.ListItems lt items) =  
+    let 
+        markerPrefix idx = case lt of 
+            Org.Bulleted -> "*"
+            Org.Plussed -> "+"
+            Org.Hyphened -> "-"
+            Org.Numbered -> show (idx + 1) <> "."
+            Org.Alphed -> "a." -- TODO!
+            # D.text
+        checkPrefix = case _ of 
+            Org.Uncheck -> "[ ]"
+            Org.Halfcheck -> "[-]"
+            Org.Check -> "[X]"
+            >>> D.text
+        counterPrefix (Org.Counter n) = 
+            D.text $ "[@" <> show n <> "]"
+        tagPrefix tag = 
+            D.text $ tag <> " ::" 
+        itemText ws = 
+            ws # NEA.toArray # map layoutWords # Array.foldl (<>) D.nil
+        itemLine idx (Org.Item opts ws Nothing) =
+            [ Just $ markerPrefix idx
+            , opts.check <#> checkPrefix
+            , opts.counter <#> counterPrefix
+            , opts.tag <#> tagPrefix
+            , Just $ itemText ws
+            ]
+            # Array.catMaybes
+            # Array.intersperse D.space
+            # Array.foldl (<>) D.nil
+        itemLine idx (Org.Item opts ws (Just subs)) =
+            itemLine idx (Org.Item opts ws Nothing) 
+            </> layoutItems (howDeep idx) subs
+        howDeep idx = deep # case lt of 
+            Org.Bulleted -> incDeep 2
+            Org.Plussed -> incDeep 2
+            Org.Hyphened -> incDeep 2
+            Org.Numbered -> if idx <= 10 then incDeep 3 else incDeep 4
+            Org.Alphed -> incDeep 3
+
+    in 
+        D.nest' (deepToIndent deep) $ NEA.toArray $ NEA.mapWithIndex itemLine items
+
+
 root :: Deep
 root = Deep 0
 
@@ -154,7 +199,11 @@ deepAs = Deep
 
 
 deeper :: Deep -> Deep
-deeper (Deep n) = Deep $ n + 1
+deeper = incDeep 1
+
+
+incDeep :: Int -> Deep -> Deep
+incDeep m (Deep n) = Deep $ n + m
 
 
 deepToIndent :: Deep -> Int
