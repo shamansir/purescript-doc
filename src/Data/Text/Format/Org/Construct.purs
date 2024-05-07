@@ -173,6 +173,10 @@ para1 :: Words -> Block
 para1 = Paragraph <<< NEA.singleton
 
 
+blank :: Block
+blank = para1 $ text ""
+
+
 b :: String -> Words
 b = Bold
 

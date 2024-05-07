@@ -53,7 +53,7 @@ layoutBlock deep = case _ of
     Org.Quote str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
     Org.Example str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
     Org.Code maybeLang str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
-    Org.List items -> layoutItems deep items
+    Org.List items -> layoutItems (deepToIndent deep) items
     Org.Table _ -> D.text "TABLE"  -- TODO
     Org.Paragraph words ->
         words
@@ -145,14 +145,15 @@ layoutWords = case _ of
     _ -> D.nil
 
 
-layoutItems :: Deep -> Org.ListItems -> Doc
-layoutItems deep (Org.ListItems lt items) =  
+layoutItems :: Int -> Org.ListItems -> Doc
+layoutItems indent (Org.ListItems lt items) =  
     let 
         markerPrefix idx = case lt of 
             Org.Bulleted -> "*"
             Org.Plussed -> "+"
             Org.Hyphened -> "-"
             Org.Numbered -> show (idx + 1) <> "."
+            Org.NumberedFrom n -> show (idx + n) <> "."
             Org.Alphed -> "a." -- TODO!
             # D.text
         checkPrefix = case _ of 
@@ -179,15 +180,16 @@ layoutItems deep (Org.ListItems lt items) =
         itemLine idx (Org.Item opts ws (Just subs)) =
             itemLine idx (Org.Item opts ws Nothing) 
             </> layoutItems (howDeep idx) subs
-        howDeep idx = deep # case lt of 
-            Org.Bulleted -> incDeep 2
-            Org.Plussed -> incDeep 2
-            Org.Hyphened -> incDeep 2
-            Org.Numbered -> if idx <= 10 then incDeep 3 else incDeep 4
-            Org.Alphed -> incDeep 3
+        howDeep idx = indent + case lt of 
+            Org.Bulleted -> 2
+            Org.Plussed -> 2
+            Org.Hyphened -> 2
+            Org.Numbered -> if (idx + 1) < 10 then 3 else 4
+            Org.NumberedFrom n -> if (idx + n) < 10 then 3 else 4
+            Org.Alphed -> 3
 
     in 
-        D.nest' (deepToIndent deep) $ NEA.toArray $ NEA.mapWithIndex itemLine items
+        D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemLine items
 
 
 root :: Deep

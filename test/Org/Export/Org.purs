@@ -146,23 +146,24 @@ spec = do
                                 , Org.item1 $ Org.text "Mozzarella"
                                 ]
                         ]
-                    , Org.para1 $ Org.br                        
+                    , Org.blank
                     , Org.list Hyphened
                         [ Org.check Uncheck $ Org.item1 $ Org.text "not started"
                         , Org.check Halfcheck $ Org.item1 $ Org.text "in progress"
                         , Org.check Check $ Org.item1 $ Org.text "complete"
                         ]
-                    , Org.para1 $ Org.br
+                    , Org.blank
                     , Org.list Hyphened
                         [ Org.tagi "fruits" $ Org.check Uncheck $ Org.item1 $ Org.text "get apples" 
                         , Org.tagi "veggies" $ Org.check Check $ Org.item1 $ Org.text "get carrots" 
                         ]
+                    , Org.blank                        
                     , Org.list Hyphened 
                         [ Org.item1 $ Org.text "item" ] 
-                    , Org.list Numbered 
+                    , Org.list (NumberedFrom 3) 
                         [ Org.count 3 $ Org.item1 $ Org.text "set to three" ] 
                     , Org.list Plussed 
-                        [ (Org.check Halfcheck $ Org.tagi "tag" $ Org.item1 $ Org.text "set to three")
+                        [ (Org.check Halfcheck $ Org.tagi "tag" $ Org.item1 $ Org.text "item contents")
                             # Org.sub Bulleted 
                                 [ Org.item1 $ Org.text "item, note whitespace in front" ] 
                         ]

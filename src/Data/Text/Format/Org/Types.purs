@@ -189,6 +189,7 @@ data ListType
     = Bulleted
     | Plussed
     | Numbered
+    | NumberedFrom Int
     | Hyphened
     | Alphed
 
@@ -615,6 +616,7 @@ type ListTypeRow =
     ( bulleted :: Case
     , plussed :: Case
     , numbered :: Case
+    , numberedFrom :: Case1 Int
     , hyphened :: Case
     , alphed :: Case
     )
@@ -627,6 +629,7 @@ readListType =
         { bulleted : Variant.matched Bulleted
         , plussed : Variant.matched Plussed
         , numbered : Variant.matched Numbered
+        , numberedFrom : Variant.match1 NumberedFrom
         , hyphened : Variant.matched Hyphened
         , alphed : Variant.matched Alphed
         }
@@ -637,6 +640,7 @@ listTypeToVariant = case _ of
     Bulleted -> Variant.mark (Proxy :: _ "bulleted")
     Plussed -> Variant.mark (Proxy :: _ "plussed")
     Numbered -> Variant.mark (Proxy :: _ "numbered")
+    NumberedFrom n -> Variant.select1 (Proxy :: _ "numberedFrom") n
     Hyphened -> Variant.mark (Proxy :: _ "hyphened")
     Alphed -> Variant.mark (Proxy :: _ "alphed")
 
@@ -647,6 +651,7 @@ listTypeFromVariant =
         { bulleted : Variant.uncase Bulleted
         , plussed : Variant.uncase Plussed
         , numbered : Variant.uncase Numbered
+        , numberedFrom : Variant.uncase1 >>> NumberedFrom
         , hyphened : Variant.uncase Hyphened
         , alphed : Variant.uncase Alphed
         }

@@ -16,5 +16,5 @@ To buy:
 - item
 3. [@3] set to three
 + [-] tag :: item contents
- * item, note whitespace in front
+  * item, note whitespace in front
 * not an item, but heading - heading takes precedence
