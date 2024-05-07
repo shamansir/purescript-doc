@@ -8,7 +8,7 @@ import Control.Monad.Error.Class (class MonadThrow)
 import Data.Maybe (Maybe(..))
 -- import Data.Text.Doc as D
 import Data.Text.Doc as D
-import Data.Text.Format.Org.Types (OrgFile, Check(..), Todo(..), Priority(..))
+import Data.Text.Format.Org.Types (OrgFile, Check(..), Todo(..), Priority(..), ListType(..))
 import Data.Text.Format.Org.Construct as Org
 import Data.Text.Format.Org.Render as R
 
@@ -117,7 +117,7 @@ spec = do
                     ]
 
 
-    it "04. formatting: headings (c)" $
+    it "04. formatting: headings (a)" $
         qtest "04a-formatting-headings"
             $ Org.f
                 $ Org.ds 
@@ -127,7 +127,48 @@ spec = do
                     , Org.set TODO $ Org.sec1 1 (Org.text "Promulgate Org to the world")
                         $ Org.ds1 
                             $ Org.set TODO $ Org.sece1 2 $ Org.text "Create a quickstart guide"  
-                    ]                    
+                    ]
+
+    it "04. formatting: lists (c)" $ 
+        qtest "04c-formatting-lists"              
+            $ Org.f
+                $ Org.dbs 
+                    [ Org.para1 $ Org.text "To buy:" 
+                    , Org.list Numbered 
+                        [ Org.item1 $ Org.text "Milk" 
+                        , (Org.item1 $ Org.text "Eggs") 
+                            # Org.sub Hyphened
+                                [ Org.item1 $ Org.text "Organic" 
+                                ]
+                        , (Org.item1 $ Org.text "Cheese") 
+                            # Org.sub Plussed
+                                [ Org.item1 $ Org.text "Parmesan"
+                                , Org.item1 $ Org.text "Mozzarella"
+                                ]
+                        ]
+                    , Org.para1 $ Org.br                        
+                    , Org.list Hyphened
+                        [ Org.check Uncheck $ Org.item1 $ Org.text "not started"
+                        , Org.check Halfcheck $ Org.item1 $ Org.text "in progress"
+                        , Org.check Check $ Org.item1 $ Org.text "complete"
+                        ]
+                    , Org.para1 $ Org.br
+                    , Org.list Hyphened
+                        [ Org.tagi "fruits" $ Org.check Uncheck $ Org.item1 $ Org.text "get apples" 
+                        , Org.tagi "veggies" $ Org.check Check $ Org.item1 $ Org.text "get carrots" 
+                        ]
+                    , Org.list Hyphened 
+                        [ Org.item1 $ Org.text "item" ] 
+                    , Org.list Numbered 
+                        [ Org.count 3 $ Org.item1 $ Org.text "set to three" ] 
+                    , Org.list Plussed 
+                        [ (Org.check Halfcheck $ Org.tagi "tag" $ Org.item1 $ Org.text "set to three")
+                            # Org.sub Bulleted 
+                                [ Org.item1 $ Org.text "item, note whitespace in front" ] 
+                        ]
+                    ]
+                    [ Org.sece1 1 $ Org.text "not an item, but heading - heading takes precedence"
+                    ]
 
 
 qtest

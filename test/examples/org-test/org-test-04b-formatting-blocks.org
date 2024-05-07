@@ -17,3 +17,7 @@ monospace
 #+begin_src emacs-lisp
 (message "Hello world")
 #+end_src
+
+[fn:LABEL]
+[fn:LABEL:DEFINITION]
+[fn::DEFINITION]

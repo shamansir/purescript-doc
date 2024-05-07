@@ -145,7 +145,7 @@ newtype Section =
         { todo :: Maybe Todo
         , priority :: Maybe Priority
         , cookie :: Maybe Cookie
-        , check :: Maybe Check
+        , check :: Maybe Check -- TODO:  shouldn't be in section?
         , heading :: NonEmptyArray Words
         , level :: Int
         , tags :: Array String
@@ -181,10 +181,15 @@ data Check
     | Halfcheck
 
 
+data Counter 
+    = Counter Int    
+
+
 data ListType
     = Bulleted
     | Plussed
     | Numbered
+    | Hyphened
     | Alphed
 
 
@@ -197,7 +202,14 @@ data TableColumn = Empty | Column (NonEmptyArray Words)
 data ListItems = ListItems ListType (NonEmptyArray Item)
 
 
-data Item = Item (NonEmptyArray Words) (Maybe ListItems)
+data Item = 
+    Item 
+        { check :: Maybe Check
+        , counter :: Maybe Counter 
+        , tag :: Maybe String
+        } 
+        (NonEmptyArray Words) 
+        (Maybe ListItems)
 
 
 newtype URL = URL String
@@ -603,6 +615,7 @@ type ListTypeRow =
     ( bulleted :: Case
     , plussed :: Case
     , numbered :: Case
+    , hyphened :: Case
     , alphed :: Case
     )
 
@@ -614,6 +627,7 @@ readListType =
         { bulleted : Variant.matched Bulleted
         , plussed : Variant.matched Plussed
         , numbered : Variant.matched Numbered
+        , hyphened : Variant.matched Hyphened
         , alphed : Variant.matched Alphed
         }
 
@@ -623,6 +637,7 @@ listTypeToVariant = case _ of
     Bulleted -> Variant.mark (Proxy :: _ "bulleted")
     Plussed -> Variant.mark (Proxy :: _ "plussed")
     Numbered -> Variant.mark (Proxy :: _ "numbered")
+    Hyphened -> Variant.mark (Proxy :: _ "hyphened")
     Alphed -> Variant.mark (Proxy :: _ "alphed")
 
 
@@ -632,6 +647,7 @@ listTypeFromVariant =
         { bulleted : Variant.uncase Bulleted
         , plussed : Variant.uncase Plussed
         , numbered : Variant.uncase Numbered
+        , hyphened : Variant.uncase Hyphened
         , alphed : Variant.uncase Alphed
         }
 

@@ -113,7 +113,52 @@ code = Code Nothing
 
 
 list :: ListType -> Array Item -> Block
-list _ _ = quote "" -- FIXME
+list lt = List <<< __items lt
+
+
+item :: Array Words -> Item
+item ws = 
+    Item 
+        { check : Nothing, counter : Nothing, tag : Nothing }
+        (__neafws ws)
+        Nothing
+
+
+item1 :: Words -> Item
+item1 = item <<< Array.singleton         
+
+
+check :: Check -> Item  -> Item
+check ch (Item opts ws is) =       
+    Item 
+        (opts { check = Just ch })
+        ws 
+        is
+
+
+count :: Int -> Item  -> Item
+count cnt (Item opts ws is) =       
+    Item 
+        (opts { counter = Just $ Counter cnt })
+        ws 
+        is
+
+
+sub :: ListType -> Array Item -> Item -> Item 
+sub lt is (Item opts ws _) =
+    Item 
+        opts
+        ws 
+        $ Just 
+        $ __items lt is
+
+
+tagi :: String -> Item -> Item 
+tagi tag (Item opts ws is) =       
+    Item 
+        (opts { tag = Just tag })
+        ws 
+        is
 
 
 table :: Block
@@ -121,7 +166,7 @@ table = quote "" -- FIXME
 
 
 para :: Array Words -> Block
-para = Paragraph <<< fromMaybe (NEA.singleton $ Plain "\n") <<< NEA.fromArray
+para = Paragraph <<< __neafws
 
 
 para1 :: Words -> Block
@@ -179,7 +224,7 @@ sec level heading doc =
         , priority : Nothing
         , cookie : Nothing
         , check : Nothing
-        , heading : NEA.fromArray heading # fromMaybe (NEA.singleton $ text "")
+        , heading : __neaf (text "") heading
         , level
         , tags : []
         , planning :
@@ -215,13 +260,6 @@ ssec level heading doc =
 
 ssec1 :: Int -> Words -> OrgDoc -> OrgDoc    
 ssec1 l = ssec l <<< Array.singleton
-
-
-__qset f (Section sec) = Section $ f sec --  unwrap >>> f >> wrap
-
-
-__qplan f =
-    __qset $ \sec -> sec { planning = Planning $ f $ case sec.planning of Planning p -> f p }
 
 
 set :: Todo -> Section -> Section
@@ -368,3 +406,20 @@ addBlock' = addBlock P.root
 isDocEmpty :: OrgDoc -> Boolean
 isDocEmpty (OrgDoc { zeroth, sections }) =
     Array.length zeroth == 0 && Array.length sections == 0
+
+
+__items :: ListType -> Array Item -> ListItems
+__items lt = ListItems lt <<<  __neaf (item [])          
+
+
+__qset f (Section sec) = Section $ f sec --  unwrap >>> f >> wrap
+
+
+__qplan f =
+    __qset $ \sec -> sec { planning = Planning $ f $ case sec.planning of Planning p -> f p }
+
+
+__neaf def = fromMaybe (NEA.singleton def) <<< NEA.fromArray
+
+
+__neafws = __neaf $ Plain "\n"
