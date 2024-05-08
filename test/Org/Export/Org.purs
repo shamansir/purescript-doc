@@ -103,11 +103,11 @@ spec = do
                             ]
                     , Org.sec1 1 (Org.text "") $
                         Org.ds
-                            [ Org.set DONE $ Org.sec1 2 (Org.text "") $
+                            [ Org.set Done $ Org.sec1 2 (Org.text "") $
                                 Org.ssec 3 [ Org.text "Some e-mail" ] $
                                     Org.ds
                                         [ Org.sece1 4 (Org.text "Title")
-                                            # Org.set TODO
+                                            # Org.set Todo
                                             # Org.priority (Alpha 'A')
                                             # Org.tag "a2%"
                                             # Org.tag "tag"
@@ -124,9 +124,9 @@ spec = do
                     [ Org.sec1 1 (Org.text "Welcome to Org-mode")
                         $ Org.ssec1 2 (Org.text "Sub-heading") 
                             $ Org.db1 $ Org.para [ Org.text "Each extra ~*~ increases the depth by one level.", Org.br ]
-                    , Org.set TODO $ Org.sec1 1 (Org.text "Promulgate Org to the world")
+                    , Org.set Todo $ Org.sec1 1 (Org.text "Promulgate Org to the world")
                         $ Org.ds1 
-                            $ Org.set TODO $ Org.sece1 2 $ Org.text "Create a quickstart guide"  
+                            $ Org.set Todo $ Org.sece1 2 $ Org.text "Create a quickstart guide"  
                     ]
 
     it "04. formatting: blocks (b)" $

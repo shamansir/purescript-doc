@@ -60,18 +60,6 @@ data Block
     -- | JoinB Block Block
 
 
-data MarkupKey 
-    = Bold 
-    | Italic
-    | Highlight 
-    | Underline
-    | Verbatim
-    | InlineCode
-    | Strike
-    | Error
-    | And MarkupKey MarkupKey
-
-
 data Words
     = Marked MarkupKey String
     | Link LinkTarget (Maybe String)
@@ -83,6 +71,25 @@ data Words
     -- | Space
     -- | Indent Int
     | JoinW Words Words
+
+
+data GreaterBlockKind 
+    = Quote'
+    | Example'
+    | Code' (Maybe Language) 
+    | Custom String (Array String)
+
+
+data MarkupKey 
+    = Bold 
+    | Italic
+    | Highlight 
+    | Underline
+    | Verbatim
+    | InlineCode
+    | Strike
+    | Error
+    | And MarkupKey MarkupKey
 
 
 newtype OrgDateTime =
@@ -166,10 +173,10 @@ newtype Section =
 
 
 data Todo
-    = TODO
-    | DOING
-    | DONE
-    | Custom String
+    = Todo
+    | Doing
+    | Done
+    | CustomKW String
 
 
 data Priority
@@ -279,7 +286,7 @@ class JsonOverRow row a <= JsonOverRowH (row :: Row Type) a | a -> row where
 class JsonOverVariant (row :: Row Type) a | a -> row where
     readForeign :: Foreign -> F a
     toVariant :: a -> Variant row
-    fromVariant :: Variant row -> a -- TODO: could be used / joined with `readForeign`, or `readForeign` could use `fromVariant` as binging
+    fromVariant :: Variant row -> a -- TODO: could be used / joined with `readForeign`, or `readForeign` could use `fromVariant` as binding
 
 
 class JsonOverVariant row a <= JsonOverVariantH (row :: Row Type) a | a -> row where
@@ -425,7 +432,6 @@ imageSourceToVariant = case _ of
     LocalSrc url  -> Variant.select1 (Proxy :: _ "local") url
 
 
-
 imageSourceFromVariant :: Variant ImageSourceRow -> ImageSource
 imageSourceFromVariant =
     Variant.match
@@ -440,6 +446,51 @@ instance JsonOverVariant ImageSourceRow ImageSource where
     readForeign = readImageSource
     toVariant = imageSourceToVariant
     fromVariant = imageSourceFromVariant    
+
+
+type GreaterBlockKindRow =
+    ( quote :: Case
+    , example :: Case
+    , code :: Case1 (Maybe Language)
+    , custom :: Case2 String (Array String)
+    )
+
+
+readGreaterBlockKind :: Foreign -> F GreaterBlockKind
+readGreaterBlockKind =
+    readMatchImpl
+        (Proxy :: _ GreaterBlockKindRow)
+        { quote : Variant.matched Quote'
+        , example : Variant.matched Example'
+        , code : Variant.match1 Code'
+        , custom : Variant.match2 Custom
+        }    
+
+
+greaterBlockKindToVariant :: GreaterBlockKind -> Variant GreaterBlockKindRow
+greaterBlockKindToVariant = case _ of 
+    Quote' -> Variant.mark (Proxy :: _ "quote")
+    Example' -> Variant.mark (Proxy :: _ "example")
+    Code' mbLang -> Variant.select1 (Proxy :: _ "code") mbLang
+    Custom name args -> Variant.select2 (Proxy :: _ "custom") name args
+
+
+greaterBlockKindFromVariant :: Variant GreaterBlockKindRow -> GreaterBlockKind
+greaterBlockKindFromVariant =
+    Variant.match
+        { quote : Variant.uncase Quote'
+        , example : Variant.uncase Example'
+        , code : Variant.uncase1 >>> Code'
+        , custom : Variant.uncase2 >>> Tuple.uncurry Custom
+        }
+
+
+instance ReadForeign GreaterBlockKind where readImpl = readImplVar
+instance WriteForeign GreaterBlockKind where writeImpl = writeImplVar
+instance JsonOverVariant GreaterBlockKindRow GreaterBlockKind where
+    readForeign = readGreaterBlockKind
+    toVariant = greaterBlockKindToVariant
+    fromVariant = greaterBlockKindFromVariant        
 
 
 type BlockRow =
@@ -465,7 +516,7 @@ readBlock =
         , code : Variant.match2 Code
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
-        , paragraph : Variant.match1 $ Paragraph <<< toNEA (Plain "??")
+        , paragraph : Variant.match1 $ Paragraph <<< toNEA (Plain "??") -- FIXME
         }
 
 
@@ -726,28 +777,28 @@ readTodo :: Foreign -> F Todo
 readTodo =
     readMatchImpl
         (Proxy :: _ TodoRow)
-        { todo : Variant.matched TODO
-        , doing : Variant.matched DOING
-        , done : Variant.matched DONE
-        , custom : Variant.match1 Custom
+        { todo : Variant.matched Todo
+        , doing : Variant.matched Doing
+        , done : Variant.matched Done
+        , custom : Variant.match1 CustomKW
         }
 
 
 todoToVariant :: Todo -> Variant TodoRow
 todoToVariant = case _ of
-    TODO -> Variant.mark (Proxy :: _ "todo")
-    DOING -> Variant.mark (Proxy :: _ "doing")
-    DONE -> Variant.mark (Proxy :: _ "done")
-    Custom s -> Variant.select1 (Proxy :: _ "custom") s
+    Todo -> Variant.mark (Proxy :: _ "todo")
+    Doing -> Variant.mark (Proxy :: _ "doing")
+    Done -> Variant.mark (Proxy :: _ "done")
+    CustomKW s -> Variant.select1 (Proxy :: _ "custom") s
 
 
 todoFromVariant :: Variant TodoRow -> Todo
 todoFromVariant =
     Variant.match
-        { todo : Variant.uncase TODO
-        , doing : Variant.uncase DOING
-        , done : Variant.uncase DONE
-        , custom : Variant.uncase1 >>> Custom
+        { todo : Variant.uncase Todo
+        , doing : Variant.uncase Doing
+        , done : Variant.uncase Done
+        , custom : Variant.uncase1 >>> CustomKW
         }
 
 
