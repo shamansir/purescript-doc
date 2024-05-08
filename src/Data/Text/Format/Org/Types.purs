@@ -68,13 +68,14 @@ data MarkupKey
     | Verbatim
     | InlineCode
     | Strike
+    | Error
     | And MarkupKey MarkupKey
 
 
 data Words
     = Marked MarkupKey String
-    | Link URL (Maybe String)
-    | Image URL
+    | Link LinkTarget (Maybe String)
+    | Image ImageSource
     | Punct CodePoint
     | Plain String
     | Markup String
@@ -220,7 +221,15 @@ data Item =
         (Maybe ListItems)
 
 
-newtype URL = URL String
+data LinkTarget 
+    = Remote String
+    | Local String
+    | Heading String
+
+
+data ImageSource 
+    = RemoteSrc String
+    | LocalSrc String
 
 
 newtype Language = Language String
@@ -228,7 +237,6 @@ newtype Language = Language String
 
 {- ----- Newtype ------- -}
 
-derive instance Newtype URL _
 derive instance Newtype Language _
 derive instance Newtype Drawer _
 derive instance Newtype OrgDateTime _
@@ -354,8 +362,84 @@ instance ReadForeign Language where readImpl = readImplNT
 instance WriteForeign Language where writeImpl = writeImplNT
 
 
-instance ReadForeign URL where readImpl = readImplNT
-instance WriteForeign URL where writeImpl = writeImplNT
+type LinkTargetRow =
+    ( remote :: Case1 String
+    , local :: Case1 String
+    , heading :: Case1 String
+    )
+
+
+readLinkTarget :: Foreign -> F LinkTarget
+readLinkTarget =
+    readMatchImpl
+        (Proxy :: _ LinkTargetRow)
+        { remote : Variant.match1 Remote
+        , local : Variant.match1 Local
+        , heading : Variant.match1 Heading
+        }
+
+
+linkTargetToVariant :: LinkTarget -> Variant LinkTargetRow
+linkTargetToVariant = case _ of
+    Remote url  -> Variant.select1 (Proxy :: _ "remote") url
+    Local url   -> Variant.select1 (Proxy :: _ "local") url
+    Heading trg -> Variant.select1 (Proxy :: _ "heading") trg
+
+
+
+linkTargetFromVariant :: Variant LinkTargetRow -> LinkTarget
+linkTargetFromVariant =
+    Variant.match
+        { remote : Variant.uncase1 >>> Remote
+        , local : Variant.uncase1 >>> Local
+        , heading : Variant.uncase1 >>> Heading
+        }
+
+
+instance ReadForeign LinkTarget where readImpl = readImplVar
+instance WriteForeign LinkTarget where writeImpl = writeImplVar
+instance JsonOverVariant LinkTargetRow LinkTarget where
+    readForeign = readLinkTarget
+    toVariant = linkTargetToVariant
+    fromVariant = linkTargetFromVariant
+
+
+type ImageSourceRow =
+    ( remote :: Case1 String
+    , local :: Case1 String
+    )
+
+
+readImageSource :: Foreign -> F ImageSource
+readImageSource =
+    readMatchImpl
+        (Proxy :: _ ImageSourceRow)
+        { remote : Variant.match1 RemoteSrc
+        , local : Variant.match1 LocalSrc
+        }
+
+
+imageSourceToVariant :: ImageSource -> Variant ImageSourceRow
+imageSourceToVariant = case _ of
+    RemoteSrc url -> Variant.select1 (Proxy :: _ "remote") url
+    LocalSrc url  -> Variant.select1 (Proxy :: _ "local") url
+
+
+
+imageSourceFromVariant :: Variant ImageSourceRow -> ImageSource
+imageSourceFromVariant =
+    Variant.match
+        { remote : Variant.uncase1 >>> RemoteSrc
+        , local : Variant.uncase1 >>> LocalSrc
+        }
+
+
+instance ReadForeign ImageSource where readImpl = readImplVar
+instance WriteForeign ImageSource where writeImpl = writeImplVar
+instance JsonOverVariant ImageSourceRow ImageSource where
+    readForeign = readImageSource
+    toVariant = imageSourceToVariant
+    fromVariant = imageSourceFromVariant    
 
 
 type BlockRow =
@@ -438,7 +522,7 @@ readMarkupKey =
         , verbatim : Variant.matched Verbatim
         , inlineCode : Variant.matched InlineCode
         , strike : Variant.matched Strike
-        , error : Variant.matched Strike -- FIXME
+        , error : Variant.matched Error -- FIXME
         }    
 
 
@@ -451,7 +535,8 @@ markupKeyToVariant = case _ of
     Verbatim -> Variant.mark (Proxy :: _ "verbatim")
     InlineCode -> Variant.mark (Proxy :: _ "inlineCode")
     Strike -> Variant.mark (Proxy :: _ "strike")
-    And _ _ -> Variant.mark (Proxy :: _ "error")
+    Error -> Variant.mark (Proxy :: _ "error")
+    And _ _ -> Variant.mark (Proxy :: _ "error") -- we do not encode `And`, we unwrap it in a list of other keys
 
 
 markupKeyFromVariant :: Variant MarkupKeyRow -> MarkupKey
@@ -464,19 +549,22 @@ markupKeyFromVariant =
         , verbatim : Variant.uncase Verbatim
         , inlineCode : Variant.uncase InlineCode
         , strike : Variant.uncase Strike
-        , error : Variant.uncase Strike -- FIXME
+        , error : Variant.uncase Error -- FIXME
         }
 
 
 markupKeyToRowArray :: MarkupKey -> Array (Variant MarkupKeyRow)
 markupKeyToRowArray = case _ of 
     And keyA keyB -> markupKeyToRowArray keyA <> markupKeyToRowArray keyB
-    key -> Array.singleton $ markupKeyToVariant key    
+    key -> Array.singleton $ markupKeyToVariant key
 
 
 rowArrayToMarkupKey :: Array (Variant MarkupKeyRow) -> MarkupKey
-rowArrayToMarkupKey =
-    const Bold -- FIXME -- Array.fold
+rowArrayToMarkupKey vars =
+    case NEA.fromArray vars of 
+        Just nea -> nea <#> fromVariant # NEA.foldl1 And
+        Nothing -> Error
+
 
 
 instance ReadForeign MarkupKey where readImpl = readImplVar
@@ -488,8 +576,8 @@ instance JsonOverVariant MarkupKeyRow MarkupKey where
 
 
 type WordsRow =
-    ( link :: Case2 URL (Maybe String)
-    , image :: Case1 URL
+    ( link :: Case2 LinkTarget (Maybe String)
+    , image :: Case1 ImageSource
     , punct :: Case1 Char
     , plain :: Case1 String
     , markup :: Case1 String

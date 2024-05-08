@@ -18,6 +18,7 @@ monospace
 (message "Hello world")
 #+end_src
 
-[fn:LABEL]
-[fn:LABEL:DEFINITION]
-[fn::DEFINITION]
+#+begin_quote
+Everything should be made as simple as possible,
+but not any simpler ---Albert Einstein
+#+end_quote

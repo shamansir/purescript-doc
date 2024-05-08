@@ -112,6 +112,10 @@ code :: String -> Block
 code = Code Nothing
 
 
+codeIn :: String -> String -> Block
+codeIn = Code <<< Just <<< Language
+
+
 list :: ListType -> Array Item -> Block
 list lt = List <<< __items lt
 
@@ -177,44 +181,109 @@ blank :: Block
 blank = para1 $ text ""
 
 
+bold :: MarkupKey 
+bold = Bold
+
+
+italic :: MarkupKey 
+italic = Italic
+
+
+hilite :: MarkupKey 
+hilite = Highlight
+
+
+under :: MarkupKey 
+under = Underline
+
+
+verbatim :: MarkupKey 
+verbatim = Verbatim
+
+
+icode :: MarkupKey
+icode = InlineCode
+
+
+strike :: MarkupKey
+strike = Strike
+
+
+both :: MarkupKey -> MarkupKey -> MarkupKey
+both = And
+
+
+
 b :: String -> Words
-b = Marked Bold
+b = marked bold
 
 
 i :: String -> Words
-i = Marked Italic
+i = marked Italic
 
 
 hl :: String -> Words
-hl = Marked Highlight
+hl = marked Highlight
 
 
 u :: String -> Words
-u = Marked Underline
+u = marked Underline
 
 
 v :: String -> Words
-v = Marked Verbatim
+v = marked Verbatim
 
 
 ic :: String -> Words
-ic = Marked InlineCode
+ic = marked InlineCode
 
 
 s :: String -> Words
-s = Marked Strike
+s = marked Strike
 
 
-a :: URL -> String -> Words
-a url = Link url <<< Just
+a :: String -> String -> Words
+a = to <<< Remote
 
 
-a' :: URL -> Words
-a' url = Link url Nothing
+a' :: String -> Words
+a' = ref <<< Remote
 
 
-img :: URL -> Words
-img = Image
+to :: LinkTarget -> String -> Words
+to lt = Link lt <<< Just
+
+
+ref :: LinkTarget -> Words
+ref lt = Link lt Nothing
+
+
+rem :: String -> LinkTarget
+rem = Remote
+
+
+loc :: String -> LinkTarget
+loc = Local
+
+
+head :: String -> LinkTarget
+head = Heading
+
+
+irem :: String -> ImageSource
+irem = RemoteSrc
+
+
+iloc :: String -> ImageSource
+iloc = LocalSrc
+
+
+img :: String -> Words
+img = Image <<< RemoteSrc
+
+
+img_ :: ImageSource -> Words
+img_ = Image
 
 
 text :: String -> Words
@@ -223,6 +292,10 @@ text = Plain
 
 br :: Words
 br = Break
+
+
+marked :: MarkupKey -> String -> Words
+marked = Marked
 
 
 sec :: Int -> Array Words -> OrgDoc -> Section

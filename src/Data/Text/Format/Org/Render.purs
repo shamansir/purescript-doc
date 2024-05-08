@@ -4,12 +4,12 @@ import Prelude
 
 import Data.Array as Array
 import Data.Array.NonEmpty as NEA
+import Data.Char (fromCharCode)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.String (toUpper) as String
 import Data.String.CodeUnits (singleton) as String
-import Data.Char (fromCharCode)
 import Data.Text.Doc (Doc, (<+>), (</>), (<//>))
 import Data.Text.Doc as D
 import Data.Text.Format.Org.Construct as Org
@@ -51,10 +51,29 @@ layoutDoc deep (OrgDoc { zeroth, sections }) =
 
 layoutBlock :: Deep -> Org.Block -> Doc
 layoutBlock deep = case _ of
-    Org.Quote str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
-    Org.Example str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
-    Org.Code maybeLang str -> D.nest indent $ D.text str -- TODO: replace breaks, add markup
-    Org.List items -> layoutItems (deepToIndent deep) items
+    Org.Quote str -> 
+        D.nest' indent 
+            [ D.text "#+begin_quote" --  TODO: merge greater blocks into one
+            , D.text str -- TODO: replace breaks, add markup
+            , D.text "#+end_quote"
+            ]
+    Org.Example str -> 
+        D.nest' indent 
+            [ D.text "#+begin_example" --  TODO: merge greater blocks into one
+            , D.text str -- TODO: replace breaks, add markup
+            , D.text "#+end_example"
+            ]
+    Org.Code maybeLang str -> 
+        D.nest' indent 
+            [ D.text "#+begin_src" <> --  TODO: merge greater blocks into one
+                case maybeLang of
+                    Just (Org.Language lang) -> D.space <> D.text lang
+                    Nothing -> D.nil
+            , D.text str -- TODO: replace breaks, add markup
+            , D.text "#+end_src"
+            ]
+    Org.List items -> 
+        layoutItems (deepToIndent deep) items
     Org.Table _ -> D.text "TABLE"  -- TODO
     Org.Paragraph words ->
         words
@@ -143,17 +162,41 @@ layoutWords :: Org.Words -> Doc
 layoutWords = case _ of
     Org.Plain plain -> D.text plain
     Org.Marked mk s -> 
-        case mk of 
-            Org.Bold -> D.wrap "*" $ D.text s
-            Org.Italic -> D.wrap "/" $ D.text s
-            Org.Underline -> D.wrap "_" $ D.text s
-            Org.Strike -> D.wrap "+" $ D.text s
-            Org.InlineCode -> D.wrap "~" $ D.text s
-            Org.Verbatim -> D.wrap "=" $ D.text s
-            Org.Highlight -> D.text s -- FIXME
-            Org.And _ _ -> D.text s -- FIXME
+        markWith mk $ D.text s
     Org.Break -> D.break
+    Org.Link trg mbText -> 
+        case mbText of 
+            Just text -> 
+                D.bracket 
+                    "[" 
+                    (D.concat (D.bracket "[" (linkTrg trg) "]")
+                              (D.bracket "[" (D.text text) "]")
+                    )   
+                    "]"
+            Nothing ->
+                D.bracket "[[" (linkTrg trg) "]]"
+    Org.Image src -> 
+        D.bracket "[[" (imgSrc src) "]]"                
     _ -> D.nil
+    where 
+        markWith mk doc = case mk of 
+            Org.Bold -> D.wrap "*" doc
+            Org.Italic -> D.wrap "/" doc
+            Org.Underline -> D.wrap "_" doc
+            Org.Strike -> D.wrap "+" doc
+            Org.InlineCode -> D.wrap "~" doc
+            Org.Verbatim -> D.wrap "=" doc
+            Org.Highlight -> doc -- FIXME
+            Org.Error -> D.wrap "X" doc
+            Org.And mka mkb -> markWith mkb $ markWith mka doc
+        linkTrg = case _ of 
+            Org.Remote url -> D.text url
+            Org.Local url -> D.text "file:" <> D.text url
+            Org.Heading trg -> D.text trg
+        imgSrc = case _ of 
+            Org.RemoteSrc url -> D.text url
+            Org.LocalSrc url -> D.text "file:" <> D.text url
+
 
 
 layoutItems :: Int -> Org.ListItems -> Doc
