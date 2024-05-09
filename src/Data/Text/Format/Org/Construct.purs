@@ -101,19 +101,19 @@ todoSequence pss fss =
 
 
 quote :: String -> Block
-quote = Greater Quote
+quote = Of Quote
 
 
 example :: String -> Block
-example = Greater Example
+example = Of Example
 
 
 code :: String -> Block
-code = Greater $ Code Nothing
+code = Of $ Code Nothing
 
 
 codeIn :: String -> String -> Block
-codeIn = Greater <<< Code <<< Just <<< Language
+codeIn = Of <<< Code <<< Just <<< Language
 
 
 list :: ListType -> Array Item -> Block

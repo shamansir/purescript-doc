@@ -51,7 +51,7 @@ newtype OrgDoc =
 
 
 data Block
-    = Greater GreaterBlockKind String
+    = Of BlockKind String
     | List ListItems
     | Table (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
@@ -71,9 +71,13 @@ data Words
     | JoinW Words Words
 
 
-data GreaterBlockKind 
+data BlockKind 
     = Quote
     | Example
+    | Center
+    | Verse
+    | Export
+    | Comment
     | Code (Maybe Language) 
     | Custom String (Array String)
 
@@ -446,53 +450,69 @@ instance JsonOverVariant ImageSourceRow ImageSource where
     fromVariant = imageSourceFromVariant    
 
 
-type GreaterBlockKindRow =
+type BlockKindRow =
     ( quote :: Case
     , example :: Case
+    , center :: Case
+    , verse :: Case
+    , export :: Case    
+    , comment :: Case
     , code :: Case1 (Maybe Language)
     , custom :: Case2 String (Array String)
     )
 
 
-readGreaterBlockKind :: Foreign -> F GreaterBlockKind
-readGreaterBlockKind =
+readBlockKind :: Foreign -> F BlockKind
+readBlockKind =
     readMatchImpl
-        (Proxy :: _ GreaterBlockKindRow)
+        (Proxy :: _ BlockKindRow)
         { quote : Variant.matched Quote
         , example : Variant.matched Example
+        , center : Variant.matched Center
+        , verse : Variant.matched Verse
+        , export : Variant.matched Export
+        , comment : Variant.matched Comment
         , code : Variant.match1 Code
         , custom : Variant.match2 Custom
         }    
 
 
-greaterBlockKindToVariant :: GreaterBlockKind -> Variant GreaterBlockKindRow
-greaterBlockKindToVariant = case _ of 
+blockKindToVariant :: BlockKind -> Variant BlockKindRow
+blockKindToVariant = case _ of 
     Quote -> Variant.mark (Proxy :: _ "quote")
     Example -> Variant.mark (Proxy :: _ "example")
+    Center -> Variant.mark (Proxy :: _ "center")
+    Verse -> Variant.mark (Proxy :: _ "verse")
+    Export -> Variant.mark (Proxy :: _ "export")
+    Comment -> Variant.mark (Proxy :: _ "comment")
     Code mbLang -> Variant.select1 (Proxy :: _ "code") mbLang
     Custom name args -> Variant.select2 (Proxy :: _ "custom") name args
 
 
-greaterBlockKindFromVariant :: Variant GreaterBlockKindRow -> GreaterBlockKind
-greaterBlockKindFromVariant =
+blockKindFromVariant :: Variant BlockKindRow -> BlockKind
+blockKindFromVariant =
     Variant.match
         { quote : Variant.uncase Quote
         , example : Variant.uncase Example
+        , center : Variant.uncase Center
+        , verse : Variant.uncase Verse
+        , export : Variant.uncase Export
+        , comment : Variant.uncase Comment
         , code : Variant.uncase1 >>> Code
         , custom : Variant.uncase2 >>> Tuple.uncurry Custom
         }
 
 
-instance ReadForeign GreaterBlockKind where readImpl = readImplVar
-instance WriteForeign GreaterBlockKind where writeImpl = writeImplVar
-instance JsonOverVariant GreaterBlockKindRow GreaterBlockKind where
-    readForeign = readGreaterBlockKind
-    toVariant = greaterBlockKindToVariant
-    fromVariant = greaterBlockKindFromVariant        
+instance ReadForeign BlockKind where readImpl = readImplVar
+instance WriteForeign BlockKind where writeImpl = writeImplVar
+instance JsonOverVariant BlockKindRow BlockKind where
+    readForeign = readBlockKind
+    toVariant = blockKindToVariant
+    fromVariant = blockKindFromVariant        
 
 
 type BlockRow =
-    ( greater :: Case2 GreaterBlockKind String
+    ( kind :: Case2 BlockKind String
     -- , list :: ListItems
     -- , table :: Array TableRow
     , paragraph :: Case1 (Array Words)
@@ -507,7 +527,7 @@ readBlock :: Foreign -> F Block
 readBlock =
     readMatchImpl
         (Proxy :: _ BlockRow)
-        { greater : Variant.match2 Greater
+        { kind : Variant.match2 Of
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         , paragraph : Variant.match1 $ Paragraph <<< toNEA (Plain "??") -- FIXME
@@ -516,16 +536,16 @@ readBlock =
 
 blockToVariant :: Block -> Variant BlockRow
 blockToVariant = case _ of
-    Greater kind value -> Variant.select2 (Proxy :: _ "greater") kind value
+    Of kind value -> Variant.select2 (Proxy :: _ "kind") kind value
     Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ NEA.toArray words
-    List _ -> Variant.select2 (Proxy :: _ "greater") Quote "QQQ" -- FIXME
-    Table _ -> Variant.select2 (Proxy :: _ "greater") Quote "QQQ" -- FIXME
+    List _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
+    Table _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
 
 
 blockFromVariant :: Variant BlockRow -> Block
 blockFromVariant =
     Variant.match
-        { greater : Variant.uncase2 >>> Tuple.uncurry Greater
+        { kind : Variant.uncase2 >>> Tuple.uncurry Of
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         , paragraph : Variant.uncase1 >>> toNEA (Plain "??") >>> Paragraph

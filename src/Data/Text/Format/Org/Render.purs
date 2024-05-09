@@ -51,7 +51,7 @@ layoutDoc deep (OrgDoc { zeroth, sections }) =
 
 layoutBlock :: Deep -> Org.Block -> Doc
 layoutBlock deep = case _ of
-    Org.Greater conf str -> 
+    Org.Of conf str -> 
         case blockNameAndArgs conf of 
             nameDoc /\ mbArgsDoc -> 
                 D.nest' indent 
@@ -81,6 +81,10 @@ layoutBlock deep = case _ of
         blockNameAndArgs = case _ of 
             Org.Quote -> D.text "quote" /\ Nothing
             Org.Example -> D.text "example" /\ Nothing
+            Org.Center -> D.text "center" /\ Nothing
+            Org.Verse -> D.text "verse" /\ Nothing
+            Org.Export -> D.text "export" /\ Nothing
+            Org.Comment -> D.text "comment" /\ Nothing
             Org.Code mbLang -> D.text "src" /\ (case mbLang of
                     Just (Org.Language lang) -> Just $ D.text lang
                     Nothing -> Nothing)
