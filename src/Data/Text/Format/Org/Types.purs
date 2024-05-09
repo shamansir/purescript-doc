@@ -51,9 +51,7 @@ newtype OrgDoc =
 
 
 data Block
-    = Quote String
-    | Example String
-    | Code (Maybe Language) String
+    = Greater GreaterBlockKind String
     | List ListItems
     | Table (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
@@ -74,9 +72,9 @@ data Words
 
 
 data GreaterBlockKind 
-    = Quote'
-    | Example'
-    | Code' (Maybe Language) 
+    = Quote
+    | Example
+    | Code (Maybe Language) 
     | Custom String (Array String)
 
 
@@ -460,27 +458,27 @@ readGreaterBlockKind :: Foreign -> F GreaterBlockKind
 readGreaterBlockKind =
     readMatchImpl
         (Proxy :: _ GreaterBlockKindRow)
-        { quote : Variant.matched Quote'
-        , example : Variant.matched Example'
-        , code : Variant.match1 Code'
+        { quote : Variant.matched Quote
+        , example : Variant.matched Example
+        , code : Variant.match1 Code
         , custom : Variant.match2 Custom
         }    
 
 
 greaterBlockKindToVariant :: GreaterBlockKind -> Variant GreaterBlockKindRow
 greaterBlockKindToVariant = case _ of 
-    Quote' -> Variant.mark (Proxy :: _ "quote")
-    Example' -> Variant.mark (Proxy :: _ "example")
-    Code' mbLang -> Variant.select1 (Proxy :: _ "code") mbLang
+    Quote -> Variant.mark (Proxy :: _ "quote")
+    Example -> Variant.mark (Proxy :: _ "example")
+    Code mbLang -> Variant.select1 (Proxy :: _ "code") mbLang
     Custom name args -> Variant.select2 (Proxy :: _ "custom") name args
 
 
 greaterBlockKindFromVariant :: Variant GreaterBlockKindRow -> GreaterBlockKind
 greaterBlockKindFromVariant =
     Variant.match
-        { quote : Variant.uncase Quote'
-        , example : Variant.uncase Example'
-        , code : Variant.uncase1 >>> Code'
+        { quote : Variant.uncase Quote
+        , example : Variant.uncase Example
+        , code : Variant.uncase1 >>> Code
         , custom : Variant.uncase2 >>> Tuple.uncurry Custom
         }
 
@@ -494,9 +492,7 @@ instance JsonOverVariant GreaterBlockKindRow GreaterBlockKind where
 
 
 type BlockRow =
-    ( quote :: Case1 String
-    , example :: Case1 String
-    , code :: Case2 (Maybe Language) String
+    ( greater :: Case2 GreaterBlockKind String
     -- , list :: ListItems
     -- , table :: Array TableRow
     , paragraph :: Case1 (Array Words)
@@ -511,9 +507,7 @@ readBlock :: Foreign -> F Block
 readBlock =
     readMatchImpl
         (Proxy :: _ BlockRow)
-        { quote : Variant.match1 Quote
-        , example : Variant.match1 Example
-        , code : Variant.match2 Code
+        { greater : Variant.match2 Greater
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         , paragraph : Variant.match1 $ Paragraph <<< toNEA (Plain "??") -- FIXME
@@ -522,20 +516,16 @@ readBlock =
 
 blockToVariant :: Block -> Variant BlockRow
 blockToVariant = case _ of
-    Quote q ->  Variant.select1 (Proxy :: _ "quote") q
-    Example ex ->  Variant.select1 (Proxy :: _ "example") ex
-    Code mbLang value -> Variant.select2 (Proxy :: _ "code") mbLang value
+    Greater kind value -> Variant.select2 (Proxy :: _ "greater") kind value
     Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ NEA.toArray words
-    List _ -> Variant.select1 (Proxy :: _ "quote") "QQQ" -- FIXME
-    Table _ -> Variant.select1 (Proxy :: _ "quote") "QQQ" -- FIXME
+    List _ -> Variant.select2 (Proxy :: _ "greater") Quote "QQQ" -- FIXME
+    Table _ -> Variant.select2 (Proxy :: _ "greater") Quote "QQQ" -- FIXME
 
 
 blockFromVariant :: Variant BlockRow -> Block
 blockFromVariant =
     Variant.match
-        { quote : Variant.uncase1 >>> Quote
-        , example : Variant.uncase1 >>> Example
-        , code : Variant.uncase2 >>> Tuple.uncurry Code
+        { greater : Variant.uncase2 >>> Tuple.uncurry Greater
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         , paragraph : Variant.uncase1 >>> toNEA (Plain "??") >>> Paragraph

@@ -51,27 +51,16 @@ layoutDoc deep (OrgDoc { zeroth, sections }) =
 
 layoutBlock :: Deep -> Org.Block -> Doc
 layoutBlock deep = case _ of
-    Org.Quote str -> 
-        D.nest' indent 
-            [ D.text "#+begin_quote" --  TODO: merge greater blocks into one
-            , D.text str -- TODO: replace breaks, add markup
-            , D.text "#+end_quote"
-            ]
-    Org.Example str -> 
-        D.nest' indent 
-            [ D.text "#+begin_example" --  TODO: merge greater blocks into one
-            , D.text str -- TODO: replace breaks, add markup
-            , D.text "#+end_example"
-            ]
-    Org.Code maybeLang str -> 
-        D.nest' indent 
-            [ D.text "#+begin_src" <> --  TODO: merge greater blocks into one
-                case maybeLang of
-                    Just (Org.Language lang) -> D.space <> D.text lang
-                    Nothing -> D.nil
-            , D.text str -- TODO: replace breaks, add markup
-            , D.text "#+end_src"
-            ]
+    Org.Greater conf str -> 
+        case blockNameAndArgs conf of 
+            nameDoc /\ mbArgsDoc -> 
+                D.nest' indent 
+                    [ D.text "#+begin_" <> nameDoc <> case mbArgsDoc of 
+                        Just argsDoc -> D.space <> argsDoc
+                        Nothing -> D.nil
+                    , D.text str -- TODO: replace breaks, add markup
+                    , D.text "#+end_" <> nameDoc
+                    ]
     Org.List items -> 
         layoutItems (deepToIndent deep) items
     Org.Table _ -> D.text "TABLE"  -- TODO
@@ -88,6 +77,19 @@ layoutBlock deep = case _ of
     --     withIndent lines =
     --         D.nest
     where
+
+        blockNameAndArgs = case _ of 
+            Org.Quote -> D.text "quote" /\ Nothing
+            Org.Example -> D.text "example" /\ Nothing
+            Org.Code mbLang -> D.text "src" /\ (case mbLang of
+                    Just (Org.Language lang) -> Just $ D.text lang
+                    Nothing -> Nothing)
+            Org.Custom name args -> 
+                D.text name /\ (
+                    if (Array.length args > 0) 
+                        then Just $ Array.foldl (<>) D.nil $ Array.intersperse D.space $ (D.text <$> args)
+                        else Nothing
+                    )
 
         splitByBreak :: Array Org.Words -> Array (Array Org.Words)
         splitByBreak =
@@ -120,10 +122,10 @@ layoutSection (Org.Section section) =
         commentPrefix = if section.comment then Just $ D.text "COMMENT" else Nothing
         todoPrefix = section.todo
                         <#> case _ of
-                            Org.TODO -> "TODO"
-                            Org.DOING -> "DOING"
-                            Org.DONE -> "DONE"
-                            Org.Custom s -> s
+                            Org.Todo -> "TODO"
+                            Org.Doing -> "DOING"
+                            Org.Done -> "DONE"
+                            Org.CustomKW s -> s
                         <#> D.text
         priorityPrefix = section.priority
                         <#> case _ of
