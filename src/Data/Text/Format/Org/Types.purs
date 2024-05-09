@@ -14,7 +14,8 @@ import Data.Array.NonEmpty as NEA
 import Data.String (CodePoint)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Date (Day, Weekday)
+import Data.Date (Date, Weekday, canonicalDate)
+import Data.Date (day, month, year) as D
 import Data.Tuple as Tuple
 import Data.Time (Time(..))
 import Data.Time as Time
@@ -25,7 +26,7 @@ import Data.Variant (match) as Variant
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String.CodePoints (codePointFromChar)
 import Data.Newtype (class Newtype, wrap, unwrap)
-import Data.Bifunctor (lmap)
+import Data.Bifunctor (lmap, bimap)
 
 import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields, class WriteForeignFields, class ReadForeignVariant, class WriteForeignVariant, readImpl, writeImpl)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
@@ -65,27 +66,28 @@ data Words
     | Punct CodePoint
     | Plain String
     | Markup String
+    | DateTime { start :: OrgDateTime, end :: Maybe OrgDateTime }
     | Break
     -- | Space
     -- | Indent Int
     | JoinW Words Words
 
 
-data BlockKind 
+data BlockKind
     = Quote
     | Example
     | Center
     | Verse
     | Export
     | Comment
-    | Code (Maybe Language) 
+    | Code (Maybe Language)
     | Custom String (Array String)
 
 
-data MarkupKey 
-    = Bold 
+data MarkupKey
+    = Bold
     | Italic
-    | Highlight 
+    | Highlight
     | Underline
     | Verbatim
     | InlineCode
@@ -96,11 +98,11 @@ data MarkupKey
 
 newtype OrgDateTime =
     OrgDateTime
-        { day :: Day
-        , dayOfWeek :: Weekday
+        { date :: Date
         , time :: Maybe OrgTimeRange
         , repeat :: Maybe Repeater
         , delay :: Maybe Delay
+        , active :: Boolean
         }
 
 
@@ -198,8 +200,8 @@ data Check
     | Halfcheck
 
 
-data Counter 
-    = Counter Int    
+data Counter
+    = Counter Int
 
 
 data ListType
@@ -220,23 +222,23 @@ data TableColumn = Empty | Column (NonEmptyArray Words)
 data ListItems = ListItems ListType (NonEmptyArray Item)
 
 
-data Item = 
-    Item 
+data Item =
+    Item
         { check :: Maybe Check
-        , counter :: Maybe Counter 
+        , counter :: Maybe Counter
         , tag :: Maybe String
-        } 
-        (NonEmptyArray Words) 
+        }
+        (NonEmptyArray Words)
         (Maybe ListItems)
 
 
-data LinkTarget 
+data LinkTarget
     = Remote String
     | Local String
     | Heading String
 
 
-data ImageSource 
+data ImageSource
     = RemoteSrc String
     | LocalSrc String
 
@@ -447,7 +449,7 @@ instance WriteForeign ImageSource where writeImpl = writeImplVar
 instance JsonOverVariant ImageSourceRow ImageSource where
     readForeign = readImageSource
     toVariant = imageSourceToVariant
-    fromVariant = imageSourceFromVariant    
+    fromVariant = imageSourceFromVariant
 
 
 type BlockKindRow =
@@ -455,7 +457,7 @@ type BlockKindRow =
     , example :: Case
     , center :: Case
     , verse :: Case
-    , export :: Case    
+    , export :: Case
     , comment :: Case
     , code :: Case1 (Maybe Language)
     , custom :: Case2 String (Array String)
@@ -474,11 +476,11 @@ readBlockKind =
         , comment : Variant.matched Comment
         , code : Variant.match1 Code
         , custom : Variant.match2 Custom
-        }    
+        }
 
 
 blockKindToVariant :: BlockKind -> Variant BlockKindRow
-blockKindToVariant = case _ of 
+blockKindToVariant = case _ of
     Quote -> Variant.mark (Proxy :: _ "quote")
     Example -> Variant.mark (Proxy :: _ "example")
     Center -> Variant.mark (Proxy :: _ "center")
@@ -508,7 +510,7 @@ instance WriteForeign BlockKind where writeImpl = writeImplVar
 instance JsonOverVariant BlockKindRow BlockKind where
     readForeign = readBlockKind
     toVariant = blockKindToVariant
-    fromVariant = blockKindFromVariant        
+    fromVariant = blockKindFromVariant
 
 
 type BlockRow =
@@ -569,7 +571,7 @@ type MarkupKeyRow =
     , inlineCode :: Case
     , strike :: Case
     , error :: Case
-    )    
+    )
 
 
 readMarkupKey :: Foreign -> F MarkupKey
@@ -584,7 +586,7 @@ readMarkupKey =
         , inlineCode : Variant.matched InlineCode
         , strike : Variant.matched Strike
         , error : Variant.matched Error -- FIXME
-        }    
+        }
 
 
 markupKeyToVariant :: MarkupKey -> Variant MarkupKeyRow
@@ -615,14 +617,14 @@ markupKeyFromVariant =
 
 
 markupKeyToRowArray :: MarkupKey -> Array (Variant MarkupKeyRow)
-markupKeyToRowArray = case _ of 
+markupKeyToRowArray = case _ of
     And keyA keyB -> markupKeyToRowArray keyA <> markupKeyToRowArray keyB
     key -> Array.singleton $ markupKeyToVariant key
 
 
 rowArrayToMarkupKey :: Array (Variant MarkupKeyRow) -> MarkupKey
 rowArrayToMarkupKey vars =
-    case NEA.fromArray vars of 
+    case NEA.fromArray vars of
         Just nea -> nea <#> fromVariant # NEA.foldl1 And
         Nothing -> Error
 
@@ -633,7 +635,7 @@ instance WriteForeign MarkupKey where writeImpl = writeImplVar
 instance JsonOverVariant MarkupKeyRow MarkupKey where
     readForeign = readMarkupKey
     toVariant = markupKeyToVariant
-    fromVariant = markupKeyFromVariant        
+    fromVariant = markupKeyFromVariant
 
 
 type WordsRow =
@@ -642,6 +644,7 @@ type WordsRow =
     , punct :: Case1 Char
     , plain :: Case1 String
     , markup :: Case1 String
+    , dateTime :: Case2 (Record JsonDateTimeRow) (Maybe (Record JsonDateTimeRow))
     , break :: Case
     , marked :: Case2 (Array (Variant MarkupKeyRow)) String
     -- , join :: Words /\ Words
@@ -658,6 +661,7 @@ readWords =
         , punct : Variant.match1 $ Punct <<< codePointFromChar
         , plain : Variant.match1 Plain
         , markup : Variant.match1 Markup
+        , dateTime : Variant.match2 $ \start end -> DateTime { start : load start, end : load <$> end }
         , break : Variant.matched Break
         -- , join : Variant.match2 JoinW
         }
@@ -671,6 +675,7 @@ wordsToVariant = case _ of
     Punct _ -> Variant.select1 (Proxy :: _ "punct") $ ':' -- FIXME
     Plain p -> Variant.select1 (Proxy :: _ "plain") p
     Markup mup -> Variant.select1 (Proxy :: _ "markup") mup
+    DateTime { start, end } -> Variant.select2 (Proxy :: _ "dateTime") (convert start) (convert <$> end)
     Break -> Variant.mark (Proxy :: _ "break")
     JoinW wA wB -> Variant.select1 (Proxy :: _ "plain") "JOIN" -- FIXME
 
@@ -684,6 +689,7 @@ wordsFromVariant =
         , punct : Variant.uncase1 >>> codePointFromChar >>> Punct
         , plain : Variant.uncase1 >>> Plain
         , markup : Variant.uncase1 >>> Markup
+        , dateTime : Variant.uncase2 >>> bimap load (map load) >>> Tuple.uncurry (\start end -> { start, end }) >>> DateTime
         , break : Variant.uncase Break
         -- , join : Variant.uncase2 JoinW  -- FIXME
         }
@@ -1119,34 +1125,42 @@ instance JsonOverRow JsonTimeRangeRow OrgTimeRange where
 
 type JsonDateTimeRow =
     ( day :: Int
-    , dayOfWeek :: Int
+    , month :: Int
+    , year :: Int
     , time :: Maybe (Record JsonTimeRangeRow)
     , repeat :: Maybe Repeater
     , delay :: Maybe Delay
+    , active :: Boolean
     )
 
 
 convertToDateTime :: OrgDateTime -> Record JsonDateTimeRow
 convertToDateTime = unwrap >>> case _ of
-    { day, dayOfWeek, time, repeat, delay } ->
-        { day : fromEnum day
-        , dayOfWeek : fromEnum dayOfWeek
+    { date, time, repeat, delay, active } ->
+        { day : fromEnum $ D.day date
+        , month : fromEnum $ D.month date
+        , year : fromEnum $ D.year date
         , time : convert <$> time
         , delay
         , repeat
+        , active
         }
 
 
 loadDateTime :: Record JsonDateTimeRow -> OrgDateTime
 loadDateTime =
     case _ of
-        { day, dayOfWeek, time, repeat, delay } ->
+        { day, month, year, time, repeat, delay, active } ->
             wrap
-                { day : toEnum day # fromMaybe bottom
-                , dayOfWeek : toEnum dayOfWeek # fromMaybe bottom
+                { date :
+                    canonicalDate
+                        (toEnum day # fromMaybe bottom)
+                        (toEnum month # fromMaybe bottom)
+                        (toEnum year # fromMaybe bottom)
                 , time : load <$> time
                 , delay
                 , repeat
+                , active
                 }
 
 

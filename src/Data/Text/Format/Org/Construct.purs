@@ -14,6 +14,9 @@ import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete) as Arr
 import Data.Array.NonEmpty as NEA
 import Data.String (joinWith, toUpper) as String
 import Data.Newtype (unwrap, wrap)
+import Data.Time (Time(..)) as T
+import Data.Date (Date, canonicalDate) as T
+import Data.Enum (toEnum)
 
 
 import Data.Text.Format.Org.Types
@@ -121,47 +124,47 @@ list lt = List <<< __items lt
 
 
 item :: Array Words -> Item
-item ws = 
-    Item 
+item ws =
+    Item
         { check : Nothing, counter : Nothing, tag : Nothing }
         (__neafws ws)
         Nothing
 
 
 item1 :: Words -> Item
-item1 = item <<< Array.singleton         
+item1 = item <<< Array.singleton
 
 
 check :: Check -> Item  -> Item
-check ch (Item opts ws is) =       
-    Item 
+check ch (Item opts ws is) =
+    Item
         (opts { check = Just ch })
-        ws 
+        ws
         is
 
 
 count :: Int -> Item  -> Item
-count cnt (Item opts ws is) =       
-    Item 
+count cnt (Item opts ws is) =
+    Item
         (opts { counter = Just $ Counter cnt })
-        ws 
+        ws
         is
 
 
-sub :: ListType -> Array Item -> Item -> Item 
+sub :: ListType -> Array Item -> Item -> Item
 sub lt is (Item opts ws _) =
-    Item 
+    Item
         opts
-        ws 
-        $ Just 
+        ws
+        $ Just
         $ __items lt is
 
 
-tagi :: String -> Item -> Item 
-tagi tag (Item opts ws is) =       
-    Item 
+tagi :: String -> Item -> Item
+tagi tag (Item opts ws is) =
+    Item
         (opts { tag = Just tag })
-        ws 
+        ws
         is
 
 
@@ -181,23 +184,23 @@ blank :: Block
 blank = para1 $ text ""
 
 
-bold :: MarkupKey 
+bold :: MarkupKey
 bold = Bold
 
 
-italic :: MarkupKey 
+italic :: MarkupKey
 italic = Italic
 
 
-hilite :: MarkupKey 
+hilite :: MarkupKey
 hilite = Highlight
 
 
-under :: MarkupKey 
+under :: MarkupKey
 under = Underline
 
 
-verbatim :: MarkupKey 
+verbatim :: MarkupKey
 verbatim = Verbatim
 
 
@@ -298,6 +301,97 @@ marked :: MarkupKey -> String -> Words
 marked = Marked
 
 
+{-
+atime :: T.Time -> OrgDateTime
+atime = ?wh
+
+
+itime :: T.Time -> OrgDateTime
+itime = ?wh
+-}
+
+
+t :: Int -> Int -> T.Time
+t h m = T.Time
+            (toEnum h # fromMaybe bottom)
+            (toEnum m # fromMaybe bottom)
+            bottom
+            bottom
+
+
+d :: Int -> Int -> Int -> T.Date
+d year month day =
+    T.canonicalDate
+        (toEnum year # fromMaybe bottom)
+        (toEnum month # fromMaybe bottom)
+        (toEnum day # fromMaybe bottom)
+
+
+adate :: T.Date -> OrgDateTime
+adate date =
+    OrgDateTime
+        { date
+        , time : Nothing
+        , active : true
+        , delay : Nothing
+        , repeat : Nothing
+        }
+
+
+idate :: T.Date -> OrgDateTime
+idate =
+    adate >>> unwrap >>> _ { active = false } >>> wrap
+
+
+adatetime :: T.Date -> T.Time -> OrgDateTime
+adatetime date time =
+    adate date # at_ time
+
+
+idatetime :: T.Date -> T.Time -> OrgDateTime
+idatetime date =
+    adatetime date >>> unwrap >>> _ { active = false } >>> wrap
+
+
+at_ :: T.Time -> OrgDateTime -> OrgDateTime
+at_ time =
+    unwrap
+        >>> _ { time = Just $ OrgTimeRange { start : time, end : Nothing } }
+        >>> wrap
+
+
+fromto :: T.Time -> T.Time -> OrgDateTime -> OrgDateTime
+fromto start end =
+    unwrap
+        >>> _ { time = Just $ OrgTimeRange { start : start, end : Just end } }
+        >>> wrap
+
+
+chdate :: T.Date -> OrgDateTime -> OrgDateTime
+chdate date =
+    unwrap
+        >>> _ { date = date }
+        >>> wrap
+
+
+afromto :: T.Date -> T.Time -> T.Time -> OrgDateTime
+afromto date start end =
+    adate date # fromto start end
+
+
+ifromto :: T.Date -> T.Time -> T.Time -> OrgDateTime
+ifromto date start end =
+    idate date # fromto start end
+
+
+at :: OrgDateTime -> Words
+at start = DateTime { start, end : Nothing }
+
+
+range :: OrgDateTime -> OrgDateTime -> Words
+range start end = DateTime { start, end : Just end }
+
+
 sec :: Int -> Array Words -> OrgDoc -> Section
 sec level heading doc =
     Section
@@ -339,7 +433,7 @@ ssec level heading doc =
     ds [ sec level heading doc ]
 
 
-ssec1 :: Int -> Words -> OrgDoc -> OrgDoc    
+ssec1 :: Int -> Words -> OrgDoc -> OrgDoc
 ssec1 l = ssec l <<< Array.singleton
 
 
@@ -490,7 +584,7 @@ isDocEmpty (OrgDoc { zeroth, sections }) =
 
 
 __items :: ListType -> Array Item -> ListItems
-__items lt = ListItems lt <<<  __neaf (item [])          
+__items lt = ListItems lt <<<  __neaf (item [])
 
 
 __qset f (Section sec) = Section $ f sec --  unwrap >>> f >> wrap
