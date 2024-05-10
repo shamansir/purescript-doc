@@ -14,9 +14,9 @@ import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete) as Arr
 import Data.Array.NonEmpty as NEA
 import Data.String (joinWith, toUpper) as String
 import Data.Newtype (unwrap, wrap)
-import Data.Time (Time(..)) as T
+import Data.Time (Time(..), hour, minute, second) as T
 import Data.Date (Date, canonicalDate) as T
-import Data.Enum (toEnum)
+import Data.Enum (toEnum, fromEnum)
 
 
 import Data.Text.Format.Org.Types
@@ -327,6 +327,15 @@ d year month day =
         (toEnum day # fromMaybe bottom)
 
 
+clock :: T.Time -> Words
+clock t = ClockW $ Clock
+            { hour : fromEnum $ T.hour t
+            , minute : fromEnum $ T.minute t
+            , second : Just $ fromEnum $ T.second t
+            }
+
+
+
 adate :: T.Date -> OrgDateTime
 adate date =
     OrgDateTime
@@ -356,14 +365,14 @@ idatetime date =
 at_ :: T.Time -> OrgDateTime -> OrgDateTime
 at_ time =
     unwrap
-        >>> _ { time = Just $ OrgTimeRange { start : time, end : Nothing } }
+        >>> _ { time = Just $ at_r time }
         >>> wrap
 
 
 fromto :: T.Time -> T.Time -> OrgDateTime -> OrgDateTime
 fromto start end =
     unwrap
-        >>> _ { time = Just $ OrgTimeRange { start : start, end : Just end } }
+        >>> _ { time = Just $ fromto_r start end }
         >>> wrap
 
 
@@ -486,27 +495,71 @@ deadline dt = __qplan $ _ { deadline = Just dt }
 
 
 schedule :: OrgDateTime -> Section -> Section
-schedule dt = __qplan $ _ { scheduled = Just dt } -- TODO
+schedule dt = __qplan $ _ { scheduled = Just dt }
 
 
 timestamp :: OrgDateTime -> Section -> Section
-timestamp dt = __qplan $ _ { timestamp = Just dt } -- TODO -- TODO
+timestamp dt = __qplan $ _ { timestamp = Just dt }
 
 
 wprop :: Property -> Section -> Section
-wprop _ = identity -- TODO
+wprop _ = identity -- FIXME
 
 
 drawer :: Drawer -> Section -> Section
-drawer _ = identity -- TODO
+drawer _ = identity -- FIXME
 
 
 note :: String -> Section -> Section
-note _ = identity  -- TODO -- LOGBOOK
+note _ = identity  -- FIXME -- LOGBOOK
 
 
 comment :: Section -> Section
 comment = __qset _ { comment = true }
+
+
+diary :: String -> Words
+diary expr = DiaryW $ Diary { expr, time : Nothing }
+
+
+diary_r :: String -> OrgTimeRange -> Words
+diary_r expr range = DiaryW $ Diary { expr, time : Just range }
+
+
+at_r :: T.Time -> OrgTimeRange
+at_r time = OrgTimeRange { start : time, end : Nothing }
+
+
+fromto_r :: T.Time -> T.Time -> OrgTimeRange
+fromto_r start end = OrgTimeRange { start : start, end : Just end }
+
+
+repeat :: RepeaterMode -> Int -> Interval -> OrgDateTime -> OrgDateTime
+repeat mode value interval =
+    unwrap
+        >>> _ { repeat = Just $
+                    wrap { mode, value, interval, with : Nothing }
+              }
+        >>> wrap
+
+
+rwith :: Int -> Interval -> OrgDateTime -> OrgDateTime
+rwith value interval =
+    unwrap
+        >>> (\r -> r { repeat = r.repeat <#> updateWith })
+        >>> wrap
+    where
+        updateWith = unwrap >>> _ { with = Just { value, interval } } >>> wrap
+
+
+
+delay :: DelayMode -> Int -> Interval -> OrgDateTime -> OrgDateTime
+delay mode value interval =
+    unwrap
+        >>> _ { delay = Just $
+                    wrap { mode, value, interval }
+              }
+        >>> wrap
 
 
 {-

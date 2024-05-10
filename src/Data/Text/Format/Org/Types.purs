@@ -67,6 +67,8 @@ data Words
     | Plain String
     | Markup String
     | DateTime { start :: OrgDateTime, end :: Maybe OrgDateTime }
+    | ClockW Clock
+    | DiaryW Diary
     | Break
     -- | Space
     -- | Indent Int
@@ -118,13 +120,18 @@ newtype Repeater =
         { mode :: RepeaterMode
         , value :: Int
         , interval :: Interval
+        , with ::
+            Maybe
+                { value :: Int
+                , interval :: Interval
+                }
         }
 
 
 data RepeaterMode
     = Single
-    | Jump
     | FromToday
+    | Jump
 
 
 data Interval = Hour | Day | Week | Month | Year
@@ -139,8 +146,8 @@ newtype Delay =
 
 
 data DelayMode
-    = DelayOne
-    | DelayAll
+    = One
+    | All
 
 
 newtype Drawer =
@@ -174,6 +181,22 @@ newtype Section =
         , comment :: Boolean
         , doc :: OrgDoc
         }
+
+
+newtype Clock =
+    Clock -- FIXME: inactive timestamp + duration
+        { hour :: Int
+        , minute :: Int
+        , second :: Maybe Int
+        }
+
+
+newtype Diary =
+    Diary
+        { expr :: String
+        , time :: Maybe OrgTimeRange
+        }
+
 
 
 data Todo
@@ -255,6 +278,8 @@ derive instance Newtype OrgTimeRange _
 derive instance Newtype Repeater _
 derive instance Newtype Delay _
 derive instance Newtype Planning _
+derive instance Newtype Clock _
+derive instance Newtype Diary _
 
 -- internals below, they don't need Newtype instance
 
@@ -638,6 +663,49 @@ instance JsonOverVariant MarkupKeyRow MarkupKey where
     fromVariant = markupKeyFromVariant
 
 
+type ClockRow =
+    ( hour :: Int
+    , minute :: Int
+    , second :: Maybe Int
+    )
+
+
+instance ReadForeign Clock where readImpl = readImplNT
+instance WriteForeign Clock where writeImpl = writeImplNT
+
+
+type DiaryRow =
+    ( expr :: String
+    , time :: Maybe (Record JsonTimeRangeRow)
+    )
+
+
+convertDiary :: Diary -> Record DiaryRow
+convertDiary = unwrap >>>
+    case _ of
+        { expr, time } ->
+            { expr
+            , time : convert <$> time
+            }
+
+
+loadDiary :: Record DiaryRow -> Diary
+loadDiary =
+    case _ of
+        { expr, time } ->
+            wrap
+                { expr
+                , time : load <$> time
+                }
+
+
+instance ReadForeign Diary where readImpl = readImplRow
+instance WriteForeign Diary where writeImpl = writeImplRow
+instance JsonOverRow DiaryRow Diary where
+    convert = convertDiary
+    load = loadDiary
+
+
 type WordsRow =
     ( link :: Case2 LinkTarget (Maybe String)
     , image :: Case1 ImageSource
@@ -645,6 +713,8 @@ type WordsRow =
     , plain :: Case1 String
     , markup :: Case1 String
     , dateTime :: Case2 (Record JsonDateTimeRow) (Maybe (Record JsonDateTimeRow))
+    , clock :: Case1 (Record ClockRow)
+    , diary :: Case1 (Record DiaryRow)
     , break :: Case
     , marked :: Case2 (Array (Variant MarkupKeyRow)) String
     -- , join :: Words /\ Words
@@ -662,6 +732,8 @@ readWords =
         , plain : Variant.match1 Plain
         , markup : Variant.match1 Markup
         , dateTime : Variant.match2 $ \start end -> DateTime { start : load start, end : load <$> end }
+        , diary : Variant.match1 $ DiaryW <<< load
+        , clock : Variant.match1 $ ClockW <<< wrap
         , break : Variant.matched Break
         -- , join : Variant.match2 JoinW
         }
@@ -676,6 +748,8 @@ wordsToVariant = case _ of
     Plain p -> Variant.select1 (Proxy :: _ "plain") p
     Markup mup -> Variant.select1 (Proxy :: _ "markup") mup
     DateTime { start, end } -> Variant.select2 (Proxy :: _ "dateTime") (convert start) (convert <$> end)
+    ClockW clock -> Variant.select1 (Proxy :: _ "clock") $ unwrap clock
+    DiaryW diary -> Variant.select1 (Proxy :: _ "diary") $ convert diary
     Break -> Variant.mark (Proxy :: _ "break")
     JoinW wA wB -> Variant.select1 (Proxy :: _ "plain") "JOIN" -- FIXME
 
@@ -690,6 +764,8 @@ wordsFromVariant =
         , plain : Variant.uncase1 >>> Plain
         , markup : Variant.uncase1 >>> Markup
         , dateTime : Variant.uncase2 >>> bimap load (map load) >>> Tuple.uncurry (\start end -> { start, end }) >>> DateTime
+        , clock : Variant.uncase1 >>> wrap >>> ClockW
+        , diary : Variant.uncase1 >>> load >>> DiaryW
         , break : Variant.uncase Break
         -- , join : Variant.uncase2 JoinW  -- FIXME
         }
@@ -979,22 +1055,22 @@ readDelayMode :: Foreign -> F DelayMode
 readDelayMode =
     readMatchImpl
         (Proxy :: _ DelayModeRow)
-        { one : Variant.matched DelayOne
-        , all : Variant.matched DelayAll
+        { one : Variant.matched One
+        , all : Variant.matched All
         }
 
 
 delayModeToVariant :: DelayMode -> Variant DelayModeRow
 delayModeToVariant = case _ of
-    DelayOne -> Variant.mark (Proxy :: _ "one")
-    DelayAll -> Variant.mark (Proxy :: _ "all")
+    One -> Variant.mark (Proxy :: _ "one")
+    All -> Variant.mark (Proxy :: _ "all")
 
 
 delayModeFromVariant :: Variant DelayModeRow -> DelayMode
 delayModeFromVariant mode =
     flip Variant.match mode $
-        { one : const DelayOne
-        , all : const DelayAll
+        { one : const One
+        , all : const All
         }
 
 

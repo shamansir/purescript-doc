@@ -4,7 +4,7 @@
 ** NEXT Weekly Review
 SCHEDULED: <2016-06-10 Fr +1w>
 :PROPERTIES:
-- State "DONE" from "NEXT" [2016-06-11 Sa 14:14]
+- State "DONE" from "NEXT" [2016-06-11 Sat 14:14]
 
 * Legal obligations
 ** NEXT Prepare tax declaration
@@ -15,7 +15,7 @@ DEADLINE: <2016-06-24 Fr> SCHEDULED: <2016-06-13 Mo>
 * Maitenance
 ** NEXT Wash the car
 SCHEDULED: <2016-06-21 Sa ++4w>
-- State "DONE" from "NEXT" [2016-06-11 Sa 14:17]
+- State "DONE" from "NEXT" [2016-06-11 Sat 14:17]
 - Washing from outside and vacuum cleaning the inside
 ** PROJ Repair bycicle
 SCHEDULED: <2016-06-21 Sa .+4w>

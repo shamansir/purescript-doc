@@ -3,7 +3,7 @@ module Data.Text.Doc where
 import Prelude
 
 import Data.Array ((:))
-import Data.Array (mapWithIndex, intersperse, replicate, uncons) as Array
+import Data.Array (mapWithIndex, intersperse, replicate, uncons, catMaybes, foldl) as Array
 import Data.Maybe (Maybe(..))
 import Data.String (codePointFromChar, singleton, fromCodePointArray, joinWith) as String
 
@@ -163,6 +163,13 @@ folddoc f arr =
             case tail of
                 [] -> head
                 _ -> f head $ folddoc f tail
+
+
+spacify :: Array (Maybe Doc) -> Doc
+spacify =
+    Array.catMaybes
+        >>> Array.intersperse space
+        >>> Array.foldl (<>) nil
 
 
 instance Show Doc where
