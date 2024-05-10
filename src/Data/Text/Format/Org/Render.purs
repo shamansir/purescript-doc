@@ -5,6 +5,8 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty as NEA
 import Data.Char (fromCharCode)
+import Data.Date as DT
+import Data.Enum (fromEnum)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
@@ -15,10 +17,8 @@ import Data.Text.Doc as D
 import Data.Text.Format.Org.Construct as Org
 import Data.Text.Format.Org.Types (OrgFile(..), OrgDoc(..))
 import Data.Text.Format.Org.Types as Org
-import Data.Tuple.Nested ((/\), type (/\))
-import Data.Date as DT
 import Data.Time as DT
-import Data.Enum (fromEnum)
+import Data.Tuple.Nested ((/\), type (/\))
 
 
 newtype Deep = Deep Int
@@ -74,6 +74,9 @@ layoutBlock deep = case _ of
             # map (map layoutWords)
             # map (Array.foldl (<>) D.nil)
             # D.nest' indent
+    Org.Footnote label def ->
+        D.bracket "[" (D.text "fn:" <> D.text label) "]"
+            <+> D.stack (layoutWords <$> NEA.toArray def) -- FIXME: impoperly renders line breaks, see 04e
     -- Quote
     -- const D.nil
     -- where
@@ -198,6 +201,13 @@ layoutWords = case _ of
                 Nothing -> D.nil
             )
         ">"
+    Org.FootnoteRef { label, def } ->
+        D.bracket "["
+            (D.text "fn:" <> D.text label <> case def of
+                Just def' -> D.text ":" <> D.text def'
+                Nothing -> D.nil
+            )
+        "]"
     Org.JoinW wa wb -> layoutWords wa <> layoutWords wb
     where
         markWith mk doc = case mk of

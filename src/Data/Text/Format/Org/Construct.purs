@@ -562,6 +562,22 @@ delay mode value interval =
         >>> wrap
 
 
+fn :: String -> Words
+fn label = FootnoteRef { label, def : Nothing }
+
+
+fndef :: String -> String -> Words
+fndef label def = FootnoteRef { label, def : Just def }
+
+
+fndef' :: String -> Words
+fndef' def = FootnoteRef { label : "", def : Just def }
+
+
+fn_ :: String -> Array Words -> Block
+fn_ label = Footnote label <<< __neafws
+
+
 {-
 data At
     = AtMeta String String
@@ -650,4 +666,4 @@ __qplan f =
 __neaf def = fromMaybe (NEA.singleton def) <<< NEA.fromArray
 
 
-__neafws = __neaf $ Plain "\n"
+__neafws = __neaf $ Plain "\n" -- FIXME: see Types.importWords

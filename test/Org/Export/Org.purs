@@ -25,6 +25,7 @@ import Org.Test.Test04a as Test04a
 import Org.Test.Test04b as Test04b
 import Org.Test.Test04c as Test04c
 import Org.Test.Test04g as Test04g
+import Org.Test.Test04e as Test04e
 
 
 spec :: Spec Unit
@@ -66,6 +67,9 @@ spec = do
 
     it "04. formatting: dates (g)" $
         qtest "04g-formatting-dates" $ Test04g.test
+
+    it "04. formatting: footnotes (e)" $
+        qtest "04e-formatting-footnotes" $ Test04e.test
 
 
 qtest

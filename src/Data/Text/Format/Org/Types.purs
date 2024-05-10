@@ -28,7 +28,7 @@ import Data.String.CodePoints (codePointFromChar)
 import Data.Newtype (class Newtype, wrap, unwrap)
 import Data.Bifunctor (lmap, bimap)
 
-import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields, class WriteForeignFields, class ReadForeignVariant, class WriteForeignVariant, readImpl, writeImpl)
+import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields, class WriteForeignFields, class ReadForeignVariant, class WriteForeignVariant, readImpl, writeImpl, writeJSON)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
 import Yoga.Json.Extra
     ( mark, matched, match1, match2, select1, select2, todo
@@ -53,6 +53,7 @@ newtype OrgDoc =
 
 data Block
     = Of BlockKind String
+    | Footnote String (NonEmptyArray Words)
     | List ListItems
     | Table (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
@@ -69,6 +70,7 @@ data Words
     | DateTime { start :: OrgDateTime, end :: Maybe OrgDateTime }
     | ClockW Clock
     | DiaryW Diary
+    | FootnoteRef { label :: String, def :: Maybe String } -- FIXME: support using `Words` here may be, but it causes recursion fails?
     | Break
     -- | Space
     -- | Indent Int
@@ -543,11 +545,16 @@ type BlockRow =
     -- , list :: ListItems
     -- , table :: Array TableRow
     , paragraph :: Case1 (Array Words)
+    , footnote :: Case2 String (Array Words)
     )
 
 
 toNEA :: forall a. a -> Array a -> NonEmptyArray a
 toNEA a = NEA.fromArray >>> fromMaybe (NEA.singleton a)
+
+
+importWords = toNEA $ Plain "??"
+exportWords = NEA.toArray
 
 
 readBlock :: Foreign -> F Block
@@ -557,14 +564,16 @@ readBlock =
         { kind : Variant.match2 Of
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
-        , paragraph : Variant.match1 $ Paragraph <<< toNEA (Plain "??") -- FIXME
+        , footnote : Variant.match2 $ \label ws -> Footnote label $ importWords ws -- FIXME
+        , paragraph : Variant.match1 $ Paragraph <<< importWords -- FIXME
         }
 
 
 blockToVariant :: Block -> Variant BlockRow
 blockToVariant = case _ of
     Of kind value -> Variant.select2 (Proxy :: _ "kind") kind value
-    Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ NEA.toArray words
+    Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ exportWords words
+    Footnote label words -> Variant.select2 (Proxy :: _ "footnote") label $ exportWords words
     List _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
     Table _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
 
@@ -575,7 +584,8 @@ blockFromVariant =
         { kind : Variant.uncase2 >>> Tuple.uncurry Of
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
-        , paragraph : Variant.uncase1 >>> toNEA (Plain "??") >>> Paragraph
+        , paragraph : Variant.uncase1 >>> importWords >>> Paragraph
+        , footnote : Variant.uncase2 >>> map importWords >>> Tuple.uncurry Footnote
         }
 
 
@@ -717,6 +727,7 @@ type WordsRow =
     , diary :: Case1 (Record DiaryRow)
     , break :: Case
     , marked :: Case2 (Array (Variant MarkupKeyRow)) String
+    , fnref :: Case2 String (Maybe String) -- FIXME: since using Words here is causing recursion to fail
     -- , join :: Words /\ Words
     )
 
@@ -735,6 +746,7 @@ readWords =
         , diary : Variant.match1 $ DiaryW <<< load
         , clock : Variant.match1 $ ClockW <<< wrap
         , break : Variant.matched Break
+        , fnref : Variant.match2 $ \label def -> FootnoteRef { label, def }
         -- , join : Variant.match2 JoinW
         }
 
@@ -751,6 +763,7 @@ wordsToVariant = case _ of
     ClockW clock -> Variant.select1 (Proxy :: _ "clock") $ unwrap clock
     DiaryW diary -> Variant.select1 (Proxy :: _ "diary") $ convert diary
     Break -> Variant.mark (Proxy :: _ "break")
+    FootnoteRef { label, def } -> Variant.select2 (Proxy :: _ "fnref") label def
     JoinW wA wB -> Variant.select1 (Proxy :: _ "plain") "JOIN" -- FIXME
 
 
@@ -767,6 +780,7 @@ wordsFromVariant =
         , clock : Variant.uncase1 >>> wrap >>> ClockW
         , diary : Variant.uncase1 >>> load >>> DiaryW
         , break : Variant.uncase Break
+        , fnref : Variant.uncase2 >>> Tuple.uncurry (\label def -> { label, def }) >>> FootnoteRef
         -- , join : Variant.uncase2 JoinW  -- FIXME
         }
 
