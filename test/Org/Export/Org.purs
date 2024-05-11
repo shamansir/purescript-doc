@@ -21,6 +21,7 @@ import Org.Test.Test02b as Test02b
 import Org.Test.Test03a as Test03a
 import Org.Test.Test03b as Test03b
 import Org.Test.Test03c as Test03c
+import Org.Test.Test03d as Test03d
 import Org.Test.Test04a as Test04a
 import Org.Test.Test04b as Test04b
 import Org.Test.Test04c as Test04c
@@ -53,8 +54,11 @@ spec = do
     it "03. works with heading with some content (b)" $
         qtest "03b-headings-with-content" $ Test03b.test
 
-    it "03. works with basic structure (c)" $
-        qtest "03c-basic-structuring" $ Test03c.test
+    it "03. works with headings with planning (c)" $
+        qtest "03c-headings-with-planning" $ Test03c.test
+
+    it "03. works with basic structure (d)" $
+        qtest "03d-basic-structuring" $ Test03d.test
 
     it "04. formatting: headings (a)" $
         qtest "04a-formatting-headings" $ Test04a.test

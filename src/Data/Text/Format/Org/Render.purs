@@ -8,7 +8,7 @@ import Data.Char (fromCharCode)
 import Data.Date as DT
 import Data.Enum (fromEnum)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.Newtype (unwrap)
 import Data.String (toUpper, take) as String
 import Data.String.CodeUnits (singleton) as String
@@ -151,7 +151,7 @@ layoutSection (Org.Section section) =
         tagsSuffix = if Array.length section.tags > 0 then
                         Just $ Array.foldl (<>) D.nil $ D.text <$> [":"] <> Array.intersperse ":" section.tags <> [":"]
                      else Nothing
-        everythingCombined =
+        headlingLineCombined =
             [ Just levelPrefix
             , todoPrefix
             , priorityPrefix
@@ -161,11 +161,29 @@ layoutSection (Org.Section section) =
             , tagsSuffix
             ]
             # D.spacify
+        planningItem tag datetime = D.text (String.toUpper tag) <> D.text ":" <+> layoutDateTime datetime
+        planning =
+            unwrap section.planning
+        hasPlanning
+            =  isJust planning.scheduled
+            || isJust planning.deadline
+            || isJust planning.timestamp
+            || isJust planning.closed
+        planningLine =
+            [ planningItem "TIMESTAMP" <$> planning.timestamp
+            , planningItem "DEADLINE"  <$> planning.deadline
+            , planningItem "SCHEDULED" <$> planning.scheduled
+            , planningItem "CLOSED"    <$> planning.closed
+            ]
+            # D.spacify
     in
         if not $ Org.isDocEmpty section.doc then
-            everythingCombined </> layoutDoc (deepAs section.level) section.doc
+            headlingLineCombined
+                <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
+                <> layoutDoc (deepAs section.level) section.doc
         else
-            everythingCombined <> D.break
+            headlingLineCombined
+            </> if hasPlanning then planningLine else D.nil
 
 
 layoutWords :: Org.Words -> Doc
@@ -191,13 +209,13 @@ layoutWords = case _ of
     Org.Markup str -> D.nil -- FIXME
     Org.DateTime { start, end } ->
         case end of
-            Just end' -> dateTime start <> D.text "--" <> dateTime end'
-            Nothing -> dateTime start
-    Org.ClockW (Org.Clock clock) -> D.text "=>" <+> lclock clock
+            Just end' -> layoutDateTime start <> D.text "--" <> layoutDateTime end'
+            Nothing -> layoutDateTime start
+    Org.ClockW (Org.Clock clock) -> D.text "=>" <+> layoutClock clock
     Org.DiaryW (Org.Diary diary) ->
         D.bracket "<%%"
             (D.text diary.expr <> case diary.time of
-                Just range -> D.space <> lrange range
+                Just range -> D.space <> layoutRange range
                 Nothing -> D.nil
             )
         ">"
@@ -227,20 +245,29 @@ layoutWords = case _ of
         imgSrc = case _ of
             Org.RemoteSrc url -> D.text url
             Org.LocalSrc url -> D.text "file:" <> D.text url
-        showwd = String.take 3 <<< show
-        showdd n =
-            if n < 10 then "0" <> show n else show n
-        ldate d =
-            D.text (show $ fromEnum $ DT.year d) <> D.text "-" <>
-            D.text (showdd $ fromEnum $ DT.month d) <> D.text "-" <>
-            D.text (showdd $ fromEnum $ DT.day d) <+>
-            D.text (showwd $ DT.weekday d)
-        ltime t =
-            D.text (showdd $ fromEnum $ DT.hour t) <> D.text ":" <>
-            D.text (showdd $ fromEnum $ DT.minute t)
-        lclock c =
+        layoutClock c =
             D.text (showdd $ c.hour) <> D.text ":" <>
             D.text (showdd $ c.minute)
+
+
+layoutDateTime :: Org.OrgDateTime -> Doc
+layoutDateTime =
+    case _ of
+        Org.OrgDateTime
+            { active, date, time, repeat, delay } ->
+                let
+                    datetime_ =
+                        [ Just $ layoutDate date
+                        , layoutRange <$> time
+                        , layoutRepeater <$> repeat
+                        , layoutDelay <$> delay
+                        ]
+                        # D.spacify
+                in if active then
+                    D.bracket "<" datetime_ ">"
+                else
+                    D.bracket "[" datetime_ "]"
+    where
         interval = case _ of
             Org.Hour -> "h"
             Org.Day -> "d"
@@ -254,37 +281,41 @@ layoutWords = case _ of
         dmode = case _ of
             Org.One -> "-"
             Org.All -> "--"
-        lrepeater = case _ of
+        layoutRepeater = case _ of
             Org.Repeater r ->
                 rmode r.mode <> show r.value <> interval r.interval <>
                     case r.with of
                         Just w -> "/" <> show w.value <> interval w.interval
                         Nothing -> ""
             >>> D.text
-        lrange = case _ of
-            Org.OrgTimeRange { start, end } ->
-                ltime start <> case end of
-                    Just end' -> D.text "-" <> ltime end'
-                    Nothing -> D.nil
-        ldelay = case _ of
+        layoutDelay = case _ of
             Org.Delay d ->
                 dmode d.mode <> show d.value <> interval d.interval
             >>> D.text
-        dateTime = case _ of
-            Org.OrgDateTime
-                { active, date, time, repeat, delay } ->
-                    let
-                        datetime_ =
-                            [ Just $ ldate date
-                            , lrange <$> time
-                            , lrepeater <$> repeat
-                            , ldelay <$> delay
-                            ]
-                            # D.spacify
-                    in if active then
-                        D.bracket "<" datetime_ ">"
-                    else
-                        D.bracket "[" datetime_ "]"
+
+
+layoutDate :: DT.Date -> Doc
+layoutDate d =
+    D.text (show $ fromEnum $ DT.year d) <> D.text "-" <>
+    D.text (showdd $ fromEnum $ DT.month d) <> D.text "-" <>
+    D.text (showdd $ fromEnum $ DT.day d) <+>
+    D.text (showwd $ DT.weekday d)
+    where
+        showwd = String.take 3 <<< show
+
+
+layoutTime :: DT.Time -> Doc
+layoutTime t =
+    D.text (showdd $ fromEnum $ DT.hour t) <> D.text ":" <>
+    D.text (showdd $ fromEnum $ DT.minute t)
+
+
+layoutRange :: Org.OrgTimeRange -> Doc
+layoutRange = case _ of
+    Org.OrgTimeRange { start, end } ->
+        layoutTime start <> case end of
+            Just end' -> D.text "-" <> layoutTime end'
+            Nothing -> D.nil
 
 
 layoutItems :: Int -> Org.ListItems -> Doc
@@ -331,6 +362,9 @@ layoutItems indent (Org.ListItems lt items) =
     in
         D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemLine items
 
+
+showdd n =
+    if n < 10 then "0" <> show n else show n
 
 
 root :: Deep
