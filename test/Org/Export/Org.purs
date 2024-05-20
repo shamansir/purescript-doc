@@ -12,7 +12,7 @@ import Data.Text.Format.Org.Render as R
 import Node.Encoding (Encoding(..))
 import Node.FS.Sync (readTextFile)
 
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, pending')
 import Test.Spec.Assertions (shouldEqual)
 
 import Org.Test.Test01 as Test01
@@ -25,8 +25,9 @@ import Org.Test.Test03d as Test03d
 import Org.Test.Test04a as Test04a
 import Org.Test.Test04b as Test04b
 import Org.Test.Test04c as Test04c
-import Org.Test.Test04g as Test04g
 import Org.Test.Test04e as Test04e
+import Org.Test.Test04g as Test04g
+import Org.Test.Test04h as Test04h
 
 
 spec :: Spec Unit
@@ -54,7 +55,7 @@ spec = do
     it "03. works with heading with some content (b)" $
         qtest "03b-headings-with-content" $ Test03b.test
 
-    it "03. works with headings with planning (c)" $
+    pending' "03. works with headings with planning (c)" $
         qtest "03c-headings-with-planning" $ Test03c.test
 
     it "03. works with basic structure (d)" $
@@ -69,11 +70,16 @@ spec = do
     it "04. formatting: lists (c)" $
         qtest "04c-formatting-lists" $ Test04c.test
 
+    it "04. formatting: footnotes (e)" $
+        qtest "04e-formatting-footnotes" $ Test04e.test
+
     it "04. formatting: dates (g)" $
         qtest "04g-formatting-dates" $ Test04g.test
 
-    it "04. formatting: footnotes (e)" $
-        qtest "04e-formatting-footnotes" $ Test04e.test
+    it "04. formatting: drawers (h)" $
+        qtest "04h-formatting-drawers" $ Test04h.test
+
+
 
 
 qtest

@@ -1,3 +1,4 @@
+* Node Properties
 :NAME: VALUE
 :NAME:
 :NAME+: VALUE
@@ -48,6 +49,11 @@ This is the end of the heading, no END exists for headings.
 #+KEY[OPTVAL]: VALUE
 #+attr_BACKEND: VALUE
 
+
+#+name: image-name
+#+caption: This is a caption for
+#+caption: the image linked below
+[[file:some/image.png]]
 
 #+name: image-name
 #+caption: This is a caption for

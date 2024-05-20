@@ -48,6 +48,7 @@ emptyDoc =
 f :: OrgDoc -> OrgFile
 f = f_ []
 
+
 f_ :: Array Property -> OrgDoc -> OrgFile
 f_ props doc =
     OrgFile { meta : Map.fromFoldable $ Array.mapWithIndex extractProp props, doc }
@@ -502,12 +503,20 @@ timestamp :: OrgDateTime -> Section -> Section
 timestamp dt = __qplan $ _ { timestamp = Just dt }
 
 
-wprop :: Property -> Section -> Section
-wprop _ = identity -- FIXME
+wprop :: String -> String -> Section -> Section
+wprop prop value = __qset $ \sec -> sec { props = sec.props # Map.insert prop value }
 
 
-drawer :: Drawer -> Section -> Section
-drawer _ = identity -- FIXME
+wprop_ :: String -> Section -> Section
+wprop_ prop = __qset $ \sec -> sec { props = sec.props # Map.insert prop "" } -- FIXME
+
+
+drawer :: String -> Array Words -> Section -> Section
+drawer name content = __qset $ \sec -> sec { drawers = Drawer { name, content : __neafws content } : sec.drawers } -- FIXME
+
+
+drawer1 :: String -> Words -> Section -> Section
+drawer1 name content = __qset $ \sec -> sec { drawers = Drawer { name, content : NEA.singleton content } : sec.drawers } -- FIXME
 
 
 note :: String -> Section -> Section
