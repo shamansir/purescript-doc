@@ -10,7 +10,7 @@ import Data.Foldable (class Foldable)
 import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.Array ((:))
-import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete) as Array
+import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete, foldl) as Array
 import Data.Array.NonEmpty as NEA
 import Data.String (joinWith, toUpper) as String
 import Data.Newtype (unwrap, wrap)
@@ -22,6 +22,7 @@ import Data.Enum (toEnum, fromEnum)
 import Data.Text.Format.Org.Types
 import Data.Text.Format.Org.Path (Path)
 import Data.Text.Format.Org.Path as P
+import Data.Text.Format.Org.Keywords as Keywords
 
 
 newtype PropName = PropName String
@@ -51,9 +52,9 @@ f = f_ []
 
 f_ :: Array Property -> OrgDoc -> OrgFile
 f_ props doc =
-    OrgFile { meta : Map.fromFoldable $ Array.mapWithIndex extractProp props, doc }
+    OrgFile { meta : Keywords.toKeywords' $ extractProp <$> props, doc }
     where
-    extractProp idx (Property (PropName name) (PropValue value)) = (idx /\ name) /\ value
+    extractProp (Property (PropName name) (PropValue value)) = name /\ value -- FIXME: move to Keywords
 
 
 ds :: Array Section -> OrgDoc
@@ -79,7 +80,7 @@ dbs blocks sections = OrgDoc { zeroth : blocks, sections }
 meta :: String -> String -> OrgFile -> OrgFile
 meta prop val (OrgFile { meta, doc }) =
     OrgFile
-        { meta : meta # Map.insert (Map.size meta /\ prop) val
+        { meta : meta # Keywords.push prop val
         , doc : doc
         }
 
@@ -87,7 +88,7 @@ meta prop val (OrgFile { meta, doc }) =
 metan :: Int -> String -> String -> OrgFile -> OrgFile
 metan n prop val (OrgFile { meta, doc }) =
     OrgFile
-        { meta : meta # Map.insert (n /\ prop) val
+        { meta : meta # Keywords.insert n prop val
         , doc : doc
         }
 
@@ -167,6 +168,14 @@ tagi tag (Item opts ws is) =
         (opts { tag = Just tag })
         ws
         is
+
+
+idrawer :: String -> Array Words -> Item -> Item
+idrawer = const $ const identity
+
+
+idrawer1 :: String -> Words -> Item -> Item
+idrawer1 = const $ const identity
 
 
 table :: Block
@@ -419,7 +428,7 @@ sec level heading doc =
                 , scheduled : Nothing
                 , timestamp : Nothing
                 }
-        , props : Map.empty
+        , props : Keywords.empty
         , drawers : []
         , comment : false
         , doc
@@ -504,11 +513,11 @@ timestamp dt = __qplan $ _ { timestamp = Just dt }
 
 
 wprop :: String -> String -> Section -> Section
-wprop prop value = __qset $ \sec -> sec { props = sec.props # Map.insert prop value }
+wprop prop value = __qset $ \sec -> sec { props = sec.props # Keywords.push prop value }
 
 
 wprop_ :: String -> Section -> Section
-wprop_ prop = __qset $ \sec -> sec { props = sec.props # Map.insert prop "" } -- FIXME
+wprop_ prop = __qset $ \sec -> sec { props = sec.props # Keywords.push prop "" } -- FIXME
 
 
 drawer :: String -> Array Words -> Section -> Section
@@ -585,6 +594,22 @@ fndef' def = FootnoteRef { label : "", def : Just def }
 
 fn_ :: String -> Array Words -> Block
 fn_ label = Footnote label <<< __neafws
+
+
+kw :: String -> String -> Keyword
+kw name value = { name, value, optional : Nothing }
+
+
+kwopt :: String -> String -> String -> Keyword
+kwopt name opt value = { name, value, optional : Just opt }
+
+
+with_kw :: String -> String -> Block -> Block
+with_kw name value = WithKeyword $ kw name value
+
+
+with_kws :: Array Keyword -> Block -> Block
+with_kws kws block = Array.foldl (flip WithKeyword) block kws
 
 
 {-

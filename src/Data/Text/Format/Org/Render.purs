@@ -14,11 +14,13 @@ import Data.String (toUpper, take) as String
 import Data.String.CodeUnits (singleton) as String
 import Data.Text.Doc (Doc, (<+>), (</>), (<//>))
 import Data.Text.Doc as D
+import Data.Time as DT
+import Data.Tuple.Nested ((/\), type (/\))
+
 import Data.Text.Format.Org.Construct as Org
 import Data.Text.Format.Org.Types (OrgFile(..), OrgDoc(..))
 import Data.Text.Format.Org.Types as Org
-import Data.Time as DT
-import Data.Tuple.Nested ((/\), type (/\))
+import Data.Text.Format.Org.Keywords as Keywords
 
 
 newtype Deep = Deep Int
@@ -26,7 +28,7 @@ newtype Deep = Deep Int
 
 layout :: OrgFile -> Doc
 layout (OrgFile { meta, doc }) =
-    case (Map.isEmpty meta /\ Org.isDocEmpty doc) of
+    case (Keywords.isEmpty meta /\ Org.isDocEmpty doc) of
         (true /\ true) -> D.nil
         (false /\ true) -> renderMetaBlock
         (true /\ false) -> layoutDoc root doc
@@ -34,8 +36,8 @@ layout (OrgFile { meta, doc }) =
             renderMetaBlock
             <//> layoutDoc root doc
     where
-        renderMetaBlock = meta # Map.toUnfoldable # map renderMeta # D.stack
-        renderMeta ((idx /\ key) /\ value) =
+        renderMetaBlock = meta # Keywords.fromKeywords # map renderMeta # D.stack
+        renderMeta (idx /\ key /\ value) =
             D.bracket "#+" (D.text key) ":" <+> D.text value
 
 
@@ -74,6 +76,13 @@ layoutBlock deep = case _ of
             # map (map layoutWords)
             # map (Array.foldl (<>) D.nil)
             # D.nest' indent
+    Org.WithKeyword kwd block ->
+        case kwd.optional of
+            Just optVal -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":"
+            Nothing -> D.bracket "#+" (D.text kwd.name) ":"
+        <+> D.text kwd.value </> layoutBlock deep block
+    Org.JoinB blockA blockB ->
+        layoutBlock deep blockA </> layoutBlock deep blockB
     Org.Footnote label def ->
         D.bracket "[" (D.text "fn:" <> D.text label) "]"
             <+> D.stack (layoutWords <$> NEA.toArray def) -- FIXME: impoperly renders line breaks, see 04e
@@ -169,6 +178,16 @@ layoutSection (Org.Section section) =
             || isJust planning.deadline
             || isJust planning.timestamp
             || isJust planning.closed
+        hasProperties =
+            Keywords.hasKeywords section.props
+        property (key /\ value) =
+            D.wrap ":" (D.text key) <+> D.text value
+        propertiesDrawer =
+            section.props
+                # Keywords.fromKeywords'
+                # map property
+                # Array.intersperse D.break
+                # Array.foldr (<>) D.nil
         planningLine =
             [ planningItem "TIMESTAMP" <$> planning.timestamp
             , planningItem "DEADLINE"  <$> planning.deadline
@@ -180,6 +199,7 @@ layoutSection (Org.Section section) =
         if not $ Org.isDocEmpty section.doc then
             headlingLineCombined
                 <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
+                <> (if hasProperties then propertiesDrawer <> D.break else D.nil)
                 <> layoutDoc (deepAs section.level) section.doc
         else
             headlingLineCombined

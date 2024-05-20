@@ -34,12 +34,15 @@ import Yoga.Json.Extra
     ( mark, matched, match1, match2, select1, select2, todo
     , uncase, uncase1, uncase2 ) as Variant
 
+import Data.Text.Format.Org.Keywords (Keywords, JsonKeywords, fromKeywords, toKeywords)
+import Data.Text.Format.Org.Keywords as Keywords
+
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
 
 data OrgFile =
     OrgFile
-        { meta :: Map (Int /\ String) String
+        { meta :: Keywords
         , doc :: OrgDoc
         }
 
@@ -57,7 +60,8 @@ data Block
     | List ListItems
     | Table (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
-    -- | JoinB Block Block
+    | WithKeyword Keyword Block
+    | JoinB Block Block
 
 
 data Words
@@ -130,6 +134,13 @@ newtype Repeater =
         }
 
 
+type Keyword =
+    { name :: String
+    , value :: String
+    , optional :: Maybe String
+    }
+
+
 data RepeaterMode
     = Single
     | FromToday
@@ -178,7 +189,7 @@ newtype Section =
         , level :: Int
         , tags :: Array String
         , planning :: Planning
-        , props :: Map String String
+        , props :: Keywords
         , drawers :: Array Drawer
         , comment :: Boolean
         , doc :: OrgDoc
@@ -545,6 +556,7 @@ type BlockRow =
     -- , list :: ListItems
     -- , table :: Array TableRow
     , paragraph :: Case1 (Array Words)
+    -- , keyword :: Case2 { name :: String, value :: String } Int -- FIXME:
     , footnote :: Case2 String (Array Words)
     )
 
@@ -564,6 +576,7 @@ readBlock =
         { kind : Variant.match2 Of
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
+        -- , keyword : Variant.match2 WithKeyword -- FIXME
         , footnote : Variant.match2 $ \label ws -> Footnote label $ importWords ws -- FIXME
         , paragraph : Variant.match1 $ Paragraph <<< importWords -- FIXME
         }
@@ -574,8 +587,11 @@ blockToVariant = case _ of
     Of kind value -> Variant.select2 (Proxy :: _ "kind") kind value
     Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ exportWords words
     Footnote label words -> Variant.select2 (Proxy :: _ "footnote") label $ exportWords words
+    -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
+    WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
     List _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
     Table _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
+    JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
 
 
 blockFromVariant :: Variant BlockRow -> Block
@@ -584,6 +600,7 @@ blockFromVariant =
         { kind : Variant.uncase2 >>> Tuple.uncurry Of
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
+        -- , keyword : Variant.uncase2 >>> Tuple.uncurry WithKeyword
         , paragraph : Variant.uncase1 >>> importWords >>> Paragraph
         , footnote : Variant.uncase2 >>> map importWords >>> Tuple.uncurry Footnote
         }
@@ -1344,7 +1361,7 @@ type SectionRow =
     , heading :: Array Words
     , level :: Int
     , planning :: Record PlanningRow
-    , props :: Map String String
+    , props :: JsonKeywords
     , comment :: Boolean
     -- , drawers :: Array Drawer -- FIXME: TODO
     , doc :: Record DocRow
@@ -1352,7 +1369,7 @@ type SectionRow =
 
 
 type FileRow =
-    ( meta :: Array (Int /\ String /\ String)
+    ( meta :: JsonKeywords
     , doc :: Record DocRow
     , sections :: Array (JsonSectionId /\ Record SectionRow)
     )
@@ -1398,7 +1415,7 @@ emptySection =
         , level : -1
         , tags : []
         , planning : emptyPlanning
-        , props : Map.empty
+        , props : Keywords.empty
         , drawers : []
         , comment : false
         , doc : emptyDoc
@@ -1417,7 +1434,7 @@ convertSection sectionId (Section section) =
         , heading : [] -- FIXME: TODO
         , level : section.level
         , planning : convert section.planning
-        , props : Map.empty -- FIXME: TODO
+        , props : [] -- FIXME: TODO
         , comment : section.comment
         , doc : convertedDoc
         }
@@ -1436,7 +1453,7 @@ loadSection allSections section =
         , tags : [] -- FIXME: TODO
         , planning : load section.planning
         , drawers : [] -- FIXME: TODO
-        , props : Map.empty  -- FIXME: TODO
+        , props : Keywords.empty  -- FIXME: TODO
         , comment : section.comment
         , doc : loadDoc allSections section.doc
         }
@@ -1508,7 +1525,7 @@ convertFile :: OrgFile -> Record FileRow
 convertFile (OrgFile { meta, doc }) =
     let convertedDoc /\ sectionsMap = convertDoc (SectionId [ 0 ]) doc
     in
-    { meta : _fromOrderedMap meta
+    { meta : fromKeywords meta
     , doc : convertedDoc
     , sections : sectionsToArray sectionsMap
     }
@@ -1517,27 +1534,9 @@ convertFile (OrgFile { meta, doc }) =
 loadFile :: Record FileRow -> OrgFile
 loadFile file =
     OrgFile
-        { meta : _toOrderedMap file.meta
+        { meta : toKeywords file.meta
         , doc : loadDoc (sectionsFromArray file.sections) file.doc
         }
-
-
-_toOrderedMap :: Array (Int /\ String /\ String) -> Map (Int /\ String) String
-_toOrderedMap = Map.fromFoldable <<< map _swap3
-
-
-_fromOrderedMap :: Map (Int /\ String) String -> Array (Int /\ String /\ String)
-_fromOrderedMap = map _bswap3 <<< Map.toUnfoldable
-
-
--- t a (t b c) ->  t (t a b) c
-_swap3 :: forall a b c. a /\ (b /\ c) -> (a /\ b) /\ c
-_swap3 (a /\ (b /\ c)) = (a /\ b) /\ c
-
-
--- t (t a b) c ->  t a (t b c)
-_bswap3 :: forall a b c. (a /\ b) /\ c -> a /\ (b /\ c)
-_bswap3 ((a /\ b) /\ c) = a /\ (b /\ c)
 
 
 -- convertFileNT :: OrgFile -
