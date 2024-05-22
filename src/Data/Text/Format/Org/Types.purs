@@ -35,14 +35,14 @@ import Yoga.Json.Extra
     , uncase, uncase1, uncase2 ) as Variant
 
 import Data.Text.Format.Org.Keywords (Keywords, JsonKeywords, fromKeywords, toKeywords)
-import Data.Text.Format.Org.Keywords as Keywords
+import Data.Text.Format.Org.Keywords (Keyword, empty) as Keywords
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
 
 data OrgFile =
     OrgFile
-        { meta :: Keywords
+        { meta :: Keywords String
         , doc :: OrgDoc
         }
 
@@ -134,11 +134,7 @@ newtype Repeater =
         }
 
 
-type Keyword =
-    { name :: String
-    , value :: String
-    , optional :: Maybe String
-    }
+type Keyword = Keywords.Keyword String
 
 
 data RepeaterMode
@@ -189,7 +185,7 @@ newtype Section =
         , level :: Int
         , tags :: Array String
         , planning :: Planning
-        , props :: Keywords
+        , props :: Keywords String
         , drawers :: Array Drawer
         , comment :: Boolean
         , doc :: OrgDoc
@@ -1361,7 +1357,7 @@ type SectionRow =
     , heading :: Array Words
     , level :: Int
     , planning :: Record PlanningRow
-    , props :: JsonKeywords
+    , props :: JsonKeywords String
     , comment :: Boolean
     -- , drawers :: Array Drawer -- FIXME: TODO
     , doc :: Record DocRow
@@ -1369,7 +1365,7 @@ type SectionRow =
 
 
 type FileRow =
-    ( meta :: JsonKeywords
+    ( meta :: JsonKeywords String
     , doc :: Record DocRow
     , sections :: Array (JsonSectionId /\ Record SectionRow)
     )

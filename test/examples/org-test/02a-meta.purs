@@ -10,5 +10,5 @@ import Data.Text.Format.Org.Construct as Org
 test :: OrgFile
 test =
     Org.empty
-        # Org.metan 1 "title" "The glories of Org"
-        # Org.metan 2 "author" "A. Org Author"
+        # Org.meta "title" "The glories of Org"
+        # Org.meta "author" "A. Org Author"

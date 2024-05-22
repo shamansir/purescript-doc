@@ -26,6 +26,11 @@ import Data.Text.Format.Org.Keywords as Keywords
 newtype Deep = Deep Int
 
 
+data KwMode
+    = AsProperty
+    | AsKeyword
+
+
 layout :: OrgFile -> Doc
 layout (OrgFile { meta, doc }) =
     case (Keywords.isEmpty meta /\ Org.isDocEmpty doc) of
@@ -36,9 +41,7 @@ layout (OrgFile { meta, doc }) =
             renderMetaBlock
             <//> layoutDoc root doc
     where
-        renderMetaBlock = meta # Keywords.fromKeywords # map renderMeta # D.stack
-        renderMeta (idx /\ key /\ value) =
-            D.bracket "#+" (D.text key) ":" <+> D.text value
+        renderMetaBlock = meta # Keywords.fromKeywords # map (layoutKeyword AsKeyword) # D.stack
 
 
 layoutDoc :: Deep -> OrgDoc -> Doc
@@ -76,11 +79,9 @@ layoutBlock deep = case _ of
             # map (map layoutWords)
             # map (Array.foldl (<>) D.nil)
             # D.nest' indent
-    Org.WithKeyword kwd block ->
-        case kwd.optional of
-            Just optVal -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":"
-            Nothing -> D.bracket "#+" (D.text kwd.name) ":"
-        <+> D.text kwd.value </> layoutBlock deep block
+    Org.WithKeyword (Keywords.Keyword kwd) block ->
+        layoutKeyword AsKeyword kwd
+        </> layoutBlock deep block
     Org.JoinB blockA blockB ->
         layoutBlock deep blockA </> layoutBlock deep blockB
     Org.Footnote label def ->
@@ -180,12 +181,10 @@ layoutSection (Org.Section section) =
             || isJust planning.closed
         hasProperties =
             Keywords.hasKeywords section.props
-        property (key /\ value) =
-            D.wrap ":" (D.text key) <+> D.text value
         propertiesDrawer =
             section.props
                 # Keywords.fromKeywords'
-                # map property
+                # map (layoutKeyword AsProperty)
                 # Array.intersperse D.break
                 # Array.foldr (<>) D.nil
         planningLine =
@@ -381,6 +380,21 @@ layoutItems indent (Org.ListItems lt items) =
 
     in
         D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemLine items
+
+
+layoutKeyword :: KwMode -> Keywords.KeywordRec String -> Doc
+layoutKeyword AsKeyword kwd =
+    case kwd.default /\ kwd.value of
+            Just optVal /\ Nothing -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":"
+            Just optVal /\ Just value -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":" <+> D.text value
+            Nothing /\ Just value ->  D.bracket "#+" (D.text kwd.name) ":" <+> D.text value
+            Nothing /\ Nothing -> D.bracket "#+" (D.text kwd.name) ":"
+layoutKeyword AsProperty kwd =
+    case kwd.value of
+        Just value ->
+            D.wrap ":" (D.text kwd.name) <+> D.text value
+        Nothing ->
+            D.wrap ":" (D.text kwd.name)
 
 
 showdd n =

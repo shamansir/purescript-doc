@@ -25,16 +25,11 @@ import Data.Text.Format.Org.Path as P
 import Data.Text.Format.Org.Keywords as Keywords
 
 
-newtype PropName = PropName String
-newtype PropValue = PropValue String
+type Property = Keywords.Keyword String
 
 
-data Property = Property PropName PropValue
-
-
-pname = PropName :: String -> PropName
-pvalue = PropValue :: String -> PropValue
-prop = Property :: PropName -> PropValue -> Property
+prop :: String -> String -> Property
+prop = Keywords.kw
 
 
 empty :: OrgFile
@@ -52,9 +47,7 @@ f = f_ []
 
 f_ :: Array Property -> OrgDoc -> OrgFile
 f_ props doc =
-    OrgFile { meta : Keywords.toKeywords' $ extractProp <$> props, doc }
-    where
-    extractProp (Property (PropName name) (PropValue value)) = name /\ value -- FIXME: move to Keywords
+    OrgFile { meta : Keywords.make props, doc }
 
 
 ds :: Array Section -> OrgDoc
@@ -80,15 +73,15 @@ dbs blocks sections = OrgDoc { zeroth : blocks, sections }
 meta :: String -> String -> OrgFile -> OrgFile
 meta prop val (OrgFile { meta, doc }) =
     OrgFile
-        { meta : meta # Keywords.push prop val
+        { meta : Keywords.qpush meta prop val
         , doc : doc
         }
 
 
-metan :: Int -> String -> String -> OrgFile -> OrgFile
-metan n prop val (OrgFile { meta, doc }) =
+meta_ :: String -> String -> OrgFile -> OrgFile
+meta_ prop val (OrgFile { meta, doc }) =
     OrgFile
-        { meta : meta # Keywords.insert n prop val
+        { meta : meta # Keywords.qpile prop val
         , doc : doc
         }
 
@@ -513,11 +506,11 @@ timestamp dt = __qplan $ _ { timestamp = Just dt }
 
 
 wprop :: String -> String -> Section -> Section
-wprop prop value = __qset $ \sec -> sec { props = sec.props # Keywords.push prop value }
+wprop prop value = __qset $ \sec -> sec { props = Keywords.qpush sec.props prop value }
 
 
 wprop_ :: String -> Section -> Section
-wprop_ prop = __qset $ \sec -> sec { props = sec.props # Keywords.push prop "" } -- FIXME
+wprop_ prop = __qset $ \sec -> sec { props = Keywords.qpushon sec.props prop }
 
 
 drawer :: String -> Array Words -> Section -> Section
@@ -597,11 +590,11 @@ fn_ label = Footnote label <<< __neafws
 
 
 kw :: String -> String -> Keyword
-kw name value = { name, value, optional : Nothing }
+kw = Keywords.kw
 
 
 kwopt :: String -> String -> String -> Keyword
-kwopt name opt value = { name, value, optional : Just opt }
+kwopt = Keywords.kwoptv
 
 
 with_kw :: String -> String -> Block -> Block
