@@ -28,6 +28,7 @@ import Org.Test.Test04c as Test04c
 import Org.Test.Test04e as Test04e
 import Org.Test.Test04g as Test04g
 import Org.Test.Test04h as Test04h
+import Org.Test.Test04i as Test04i
 
 
 spec :: Spec Unit
@@ -76,8 +77,11 @@ spec = do
     it "04. formatting: dates (g)" $
         qtest "04g-formatting-dates" $ Test04g.test
 
-    it "04. formatting: drawers (h)" $
-        qtest "04h-formatting-drawers" $ Test04h.test
+    it "04. formatting: properties & keywords (h)" $
+        qtest "04h-formatting-properties-and-keywords" $ Test04h.test
+
+    it "04. formatting: drawers (i)" $
+        qtest "04i-formatting-drawers" $ Test04i.test
 
 
 

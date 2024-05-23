@@ -10,7 +10,7 @@ import Data.Enum (fromEnum)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.Newtype (unwrap)
-import Data.String (toUpper, take) as String
+import Data.String (toUpper, toLower, take) as String
 import Data.String.CodeUnits (singleton) as String
 import Data.Text.Doc (Doc, (<+>), (</>), (<//>))
 import Data.Text.Doc as D
@@ -29,6 +29,11 @@ newtype Deep = Deep Int
 data KwMode
     = AsProperty
     | AsKeyword
+
+
+data DrawerMode
+    = DrawerUpper
+    | DrawerLower
 
 
 layout :: OrgFile -> Doc
@@ -53,8 +58,8 @@ layoutDoc deep (OrgDoc { zeroth, sections }) =
     else
         renderSectionsBlock
     where
-        renderZerothBlock = zeroth # map (layoutBlock deep) # Array.intersperse D.break # Array.foldl (<>) D.nil
-        renderSectionsBlock = sections # map layoutSection # Array.foldl (<>) D.nil
+        renderZerothBlock = zeroth # map (layoutBlock deep) # D.joinWith D.break
+        renderSectionsBlock = sections # map layoutSection # D.join
 
 
 layoutBlock :: Deep -> Org.Block -> Doc
@@ -77,10 +82,10 @@ layoutBlock deep = case _ of
             # NEA.toArray
             # splitByBreak
             # map (map layoutWords)
-            # map (Array.foldl (<>) D.nil)
+            # map D.join
             # D.nest' indent
     Org.WithKeyword (Keywords.Keyword kwd) block ->
-        layoutKeyword AsKeyword kwd
+        D.nest indent (layoutKeyword AsKeyword kwd)
         </> layoutBlock deep block
     Org.JoinB blockA blockB ->
         layoutBlock deep blockA </> layoutBlock deep blockB
@@ -107,7 +112,7 @@ layoutBlock deep = case _ of
             Org.Custom name args ->
                 D.text name /\ (
                     if (Array.length args > 0)
-                        then Just $ Array.foldl (<>) D.nil $ Array.intersperse D.space $ (D.text <$> args)
+                        then Just $ D.joinWith D.space $ (D.text <$> args)
                         else Nothing
                     )
 
@@ -137,7 +142,7 @@ layoutSection :: Org.Section -> Doc
 layoutSection (Org.Section section) =
     let
         headingText =
-            section.heading # NEA.toArray # map layoutWords # Array.foldl (<>) D.nil
+            section.heading # NEA.toArray # map layoutWords # D.join
         levelPrefix = Array.replicate section.level "*" # Array.fold # D.text
         commentPrefix = if section.comment then Just $ D.text "COMMENT" else Nothing
         todoPrefix = section.todo
@@ -159,7 +164,7 @@ layoutSection (Org.Section section) =
                             Org.Pie -> "[o]"
                         <#> D.text
         tagsSuffix = if Array.length section.tags > 0 then
-                        Just $ Array.foldl (<>) D.nil $ D.text <$> [":"] <> Array.intersperse ":" section.tags <> [":"]
+                        Just $ D.join $ D.text <$> [":"] <> Array.intersperse ":" section.tags <> [":"]
                      else Nothing
         headlingLineCombined =
             [ Just levelPrefix
@@ -185,8 +190,8 @@ layoutSection (Org.Section section) =
             section.props
                 # Keywords.fromKeywords'
                 # map (layoutKeyword AsProperty)
-                # Array.intersperse D.break
-                # Array.foldr (<>) D.nil
+                # D.joinWith D.break
+                # layoutDrawer' DrawerUpper "properties"
         planningLine =
             [ planningItem "TIMESTAMP" <$> planning.timestamp
             , planningItem "DEADLINE"  <$> planning.deadline
@@ -202,7 +207,8 @@ layoutSection (Org.Section section) =
                 <> layoutDoc (deepAs section.level) section.doc
         else
             headlingLineCombined
-            </> if hasPlanning then planningLine else D.nil
+            <> (if hasProperties then D.break <> propertiesDrawer <> D.break else D.nil)
+            <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
 
 
 layoutWords :: Org.Words -> Doc
@@ -358,7 +364,7 @@ layoutItems indent (Org.ListItems lt items) =
         tagPrefix tag =
             D.text $ tag <> " ::"
         itemText ws =
-            ws # NEA.toArray # map layoutWords # Array.foldl (<>) D.nil
+            ws # NEA.toArray # map layoutWords # D.join
         itemLine idx (Org.Item opts ws Nothing) =
             [ Just $ markerPrefix idx
             , opts.check <#> checkPrefix
@@ -383,18 +389,39 @@ layoutItems indent (Org.ListItems lt items) =
 
 
 layoutKeyword :: KwMode -> Keywords.KeywordRec String -> Doc
-layoutKeyword AsKeyword kwd =
-    case kwd.default /\ kwd.value of
-            Just optVal /\ Nothing -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":"
-            Just optVal /\ Just value -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":" <+> D.text value
-            Nothing /\ Just value ->  D.bracket "#+" (D.text kwd.name) ":" <+> D.text value
-            Nothing /\ Nothing -> D.bracket "#+" (D.text kwd.name) ":"
 layoutKeyword AsProperty kwd =
     case kwd.value of
         Just value ->
             D.wrap ":" (D.text kwd.name) <+> D.text value
         Nothing ->
             D.wrap ":" (D.text kwd.name)
+layoutKeyword AsKeyword kwd =
+    case kwd.default /\ kwd.value of
+            Just optVal /\ Nothing -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":"
+            Just optVal /\ Just value -> D.bracket "#+" (D.text kwd.name <> D.bracket "[" (D.text optVal) "]") ":" <+> D.text value
+            Nothing /\ Just value ->  D.bracket "#+" (D.text kwd.name) ":" <+> D.text value
+            Nothing /\ Nothing -> D.bracket "#+" (D.text kwd.name) ":"
+
+
+layoutDrawer :: Org.Drawer -> Doc
+layoutDrawer (Org.Drawer { name, content }) =
+    content
+        # NEA.toArray
+        # map layoutWords
+        # D.join
+        # layoutDrawer' DrawerLower name
+
+
+layoutDrawer' :: DrawerMode -> String -> Doc -> Doc
+layoutDrawer' mode name content =
+    D.wrap ":" (D.text $ applyMode name)
+    </> content
+    </> D.wrap ":" (D.text $ applyMode "end")
+    where
+        applyMode =
+            case mode of
+                DrawerUpper -> String.toUpper
+                DrawerLower -> String.toLower
 
 
 showdd n =

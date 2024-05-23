@@ -10,7 +10,7 @@ import Data.Foldable (class Foldable)
 import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.Array ((:))
-import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete, foldl) as Array
+import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete, foldl, foldr) as Array
 import Data.Array.NonEmpty as NEA
 import Data.String (joinWith, toUpper) as String
 import Data.Newtype (unwrap, wrap)
@@ -602,7 +602,7 @@ with_kw name value = WithKeyword $ kw name value
 
 
 with_kws :: Array Keyword -> Block -> Block
-with_kws kws block = Array.foldl (flip WithKeyword) block kws
+with_kws kws block = Array.foldr WithKeyword block kws
 
 
 {-

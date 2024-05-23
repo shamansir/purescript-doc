@@ -169,7 +169,15 @@ spacify :: Array (Maybe Doc) -> Doc
 spacify =
     Array.catMaybes
         >>> Array.intersperse space
-        >>> Array.foldl (<>) nil
+        >>> join
+
+
+join :: Array Doc -> Doc
+join = Array.foldl (<>) nil
+
+
+joinWith :: Doc -> Array Doc -> Doc
+joinWith bw = Array.intersperse bw >>> join
 
 
 instance Show Doc where
