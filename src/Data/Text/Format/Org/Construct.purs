@@ -183,6 +183,10 @@ bdrawer :: String -> Array Words -> Block
 bdrawer name content = IsDrawer $ Drawer { name, content : __neafws content }
 
 
+bdrawer1 :: String -> Words -> Block
+bdrawer1 name = bdrawer name <<< Array.singleton
+
+
 table :: Block
 table = quote "" -- FIXME
 

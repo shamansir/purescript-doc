@@ -90,7 +90,7 @@ layoutBlock deep = case _ of
     Org.JoinB blockA blockB ->
         layoutBlock deep blockA </> layoutBlock deep blockB
     Org.IsDrawer drawer -> 
-        layoutDrawer drawer
+        layoutDrawer indent drawer
     Org.Footnote label def ->
         D.bracket "[" (D.text "fn:" <> D.text label) "]"
             <+> D.stack (layoutWords <$> NEA.toArray def) -- FIXME: impoperly renders line breaks, see 04e
@@ -193,12 +193,12 @@ layoutSection (Org.Section section) =
                 # Keywords.fromKeywords'
                 # map (layoutKeyword AsProperty)
                 # D.joinWith D.break
-                # layoutDrawer' DrawerUpper "properties"
+                # layoutDrawer' 0 DrawerUpper "properties"
         hasOtherDrawers = 
             Array.length section.drawers > 0
         otherDrawers = 
             section.drawers 
-                # map layoutDrawer
+                # map (layoutDrawer 0)
                 # D.joinWith D.break
         planningLine =
             [ planningItem "TIMESTAMP" <$> planning.timestamp
@@ -387,13 +387,13 @@ layoutItems indent (Org.ListItems lt items) =
             itemLine idx (Org.Item opts ws Nothing)
             </> layoutItems (howDeep idx) subs
         itemMaybeWithDrawers idx item@(Org.Item opts _ _) = 
-            if hasDrawers opts then drawers opts else D.nil 
-            <> itemLine idx item
+            itemLine idx item
+            <> if hasDrawers opts then drawers opts else D.nil 
         hasDrawers opts = 
             Array.length opts.drawers > 0
         drawers opts = 
             opts.drawers 
-                # map layoutDrawer
+                # map (layoutDrawer indent)
                 # D.joinWith D.break            
         howDeep idx = indent + case lt of
             Org.Bulleted -> 2
@@ -421,20 +421,21 @@ layoutKeyword AsKeyword kwd =
             Nothing /\ Nothing -> D.bracket "#+" (D.text kwd.name) ":"
 
 
-layoutDrawer :: Org.Drawer -> Doc
-layoutDrawer (Org.Drawer { name, content }) =
+layoutDrawer :: Int -> Org.Drawer -> Doc
+layoutDrawer indent (Org.Drawer { name, content }) =
     content
         # NEA.toArray
         # map layoutWords
         # D.join
-        # layoutDrawer' DrawerLower name
+        # layoutDrawer' indent DrawerLower name
+        # D.nest indent
 
 
-layoutDrawer' :: DrawerMode -> String -> Doc -> Doc
-layoutDrawer' mode name content =
+layoutDrawer' :: Int -> DrawerMode -> String -> Doc -> Doc
+layoutDrawer' indent mode name content =
     D.wrap ":" (D.text $ applyMode name)
-    </> content
-    </> D.wrap ":" (D.text $ applyMode "end")
+    </> D.nest indent content
+    </> D.nest indent (D.wrap ":" (D.text $ applyMode "end"))
     where
         applyMode =
             case mode of
