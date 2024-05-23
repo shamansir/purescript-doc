@@ -25,6 +25,7 @@ import Org.Test.Test03d as Test03d
 import Org.Test.Test04a as Test04a
 import Org.Test.Test04b as Test04b
 import Org.Test.Test04c as Test04c
+import Org.Test.Test04d as Test04d
 import Org.Test.Test04e as Test04e
 import Org.Test.Test04g as Test04g
 import Org.Test.Test04h as Test04h
@@ -70,6 +71,9 @@ spec = do
 
     it "04. formatting: lists (c)" $
         qtest "04c-formatting-lists" $ Test04c.test
+
+    it "04. formatting: tables (d)" $
+        qtest "04d-formatting-tables" $ Test04d.test        
 
     it "04. formatting: footnotes (e)" $
         qtest "04e-formatting-footnotes" $ Test04e.test

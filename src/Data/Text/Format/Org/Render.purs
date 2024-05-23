@@ -76,7 +76,8 @@ layoutBlock deep = case _ of
                     ]
     Org.List items ->
         layoutItems (deepToIndent deep) items
-    Org.Table _ -> D.text "TABLE"  -- TODO
+    Org.Table format rows -> 
+        layoutTable $ NEA.toArray rows
     Org.Paragraph words ->
         words
             # NEA.toArray
@@ -441,6 +442,23 @@ layoutDrawer' indent mode name content =
             case mode of
                 DrawerUpper -> String.toUpper
                 DrawerLower -> String.toLower
+
+
+layoutTable :: Array Org.TableRow -> Doc
+layoutTable rows =
+    D.joinWith D.break $ layoutRow <$> rows
+    where 
+        columnsCount = Array.foldl max 0 $ columnsAt <$> rows
+        columnsAt Org.BreakT = 0
+        columnsAt (Org.Row columns) = NEA.length columns
+        layoutRow Org.BreakT = 
+            D.wrap "|" $ D.joinWith (D.text "+") $ Array.replicate columnsCount $ D.text "-"
+        layoutRow (Org.Row columns) = 
+            D.wrap "|" $ D.joinWith (D.text "|") $ layoutColumn <$> NEA.toArray columns
+        layoutColumn Org.Empty = 
+            D.text " "
+        layoutColumn (Org.Column words) = 
+            D.join $ layoutWords <$> NEA.toArray words
 
 
 showdd n =

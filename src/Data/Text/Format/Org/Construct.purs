@@ -130,6 +130,42 @@ item1 :: Words -> Item
 item1 = item <<< Array.singleton
 
 
+table :: Array TableRow -> Block
+table = Table Nothing <<< __neaf tbreak
+
+
+tbreak :: TableRow
+tbreak = BreakT
+
+
+tcol :: Array Words -> TableColumn
+tcol = Column <<< __neafws
+
+
+tcol1 :: Words -> TableColumn
+tcol1 = tcol <<< Array.singleton
+
+
+tskip :: TableColumn
+tskip = Empty
+
+
+trow :: Array TableColumn -> TableRow
+trow = Row <<< __neaf Empty
+-- trow = Row <<< __neaf Empty <<< map toColumn
+--     where 
+--         toColumn [] = Empty
+--         toColumn arr = Column $ __neafws arr
+
+
+qrow :: Array Words -> TableRow 
+qrow items = trow $ tcol1 <$> items
+
+
+qrow' :: Array String -> TableRow
+qrow' items = qrow $ text <$> items
+
+
 check :: Check -> Item  -> Item
 check ch (Item opts ws is) =
     Item
@@ -187,10 +223,6 @@ bdrawer1 :: String -> Words -> Block
 bdrawer1 name = bdrawer name <<< Array.singleton
 
 
-table :: Block
-table = quote "" -- FIXME
-
-
 para :: Array Words -> Block
 para = Paragraph <<< __neafws
 
@@ -233,7 +265,6 @@ strike = Strike
 
 both :: MarkupKey -> MarkupKey -> MarkupKey
 both = And
-
 
 
 b :: String -> Words

@@ -60,7 +60,7 @@ data Block
     -- | Centered (NonEmptyArray Words) -- TODO
     | Footnote String (NonEmptyArray Words)
     | List ListItems
-    | Table (NonEmptyArray TableRow)
+    | Table (Maybe String) (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
     | WithKeyword Keyword Block
     | JoinB Block Block
@@ -592,7 +592,7 @@ blockToVariant = case _ of
     -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
     WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
     List _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
-    Table _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
+    Table _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
     JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
 
 
