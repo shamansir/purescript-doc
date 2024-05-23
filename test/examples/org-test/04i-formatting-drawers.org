@@ -1,6 +1,16 @@
+* Drawer in the node
+
 :drawer:
 Text.
 :end:
+
+
+** This is a headline
+Still outside the drawer
+:DRAWERNAME:
+This is inside the drawer.
+:END:
+After the drawer.
 
 
 The blank lines above are considered a part of the drawer.

@@ -10,7 +10,7 @@ import Data.Foldable (class Foldable)
 import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.Array ((:))
-import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete, foldl, foldr) as Array
+import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete, foldl, foldr, snoc) as Array
 import Data.Array.NonEmpty as NEA
 import Data.String (joinWith, toUpper) as String
 import Data.Newtype (unwrap, wrap)
@@ -121,7 +121,7 @@ list lt = List <<< __items lt
 item :: Array Words -> Item
 item ws =
     Item
-        { check : Nothing, counter : Nothing, tag : Nothing }
+        { check : Nothing, counter : Nothing, tag : Nothing, drawers : [] }
         (__neafws ws)
         Nothing
 
@@ -164,11 +164,23 @@ tagi tag (Item opts ws is) =
 
 
 idrawer :: String -> Array Words -> Item -> Item
-idrawer = const $ const identity
+idrawer name content (Item rec iws inner) = 
+    Item 
+        (rec 
+            { drawers = 
+                Array.snoc rec.drawers $ Drawer { name, content : __neafws content } 
+            }
+        )
+        iws 
+        inner
 
 
 idrawer1 :: String -> Words -> Item -> Item
-idrawer1 = const $ const identity
+idrawer1 name = idrawer name <<< Array.singleton
+
+
+bdrawer :: String -> Array Words -> Block
+bdrawer name content = IsDrawer $ Drawer { name, content : __neafws content }
 
 
 table :: Block

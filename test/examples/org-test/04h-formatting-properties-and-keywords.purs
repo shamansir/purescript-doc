@@ -17,7 +17,6 @@ test =
                 # Org.wprop_ "NAME"
                 # Org.wprop "NAME+" "VALUE"
                 # Org.wprop_ "NAME+"
-                # Org.drawer1 "drawer" (Org.text "Text.")
             , Org.sec1 1 (Org.text "Heading")
                     (Org.db
                         [ Org.with_kws

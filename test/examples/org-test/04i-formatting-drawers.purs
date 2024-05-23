@@ -12,7 +12,17 @@ test :: OrgFile
 test =
     Org.f
         $ Org.ds
-            [ Org.sece1 1 (Org.text "")
+            [ Org.sec1 1 (Org.text "Drawer in the node")
+                (Org.db
+                    [ Org.blank -- FIXME:
+                    , Org.para1 $ Org.text "The blank lines above are considered a part of a drawer"
+                    , Org.list Hyphened
+                        [ Org.item1 $ Org.text "Item 1\n"
+                        , (Org.item1 $ Org.text "Item 2\n")
+                            # Org.idrawer1 "drawer" (Org.text "inside item 2")
+                        ]
+                    ]
+                )
                 # Org.drawer1 "drawer" (Org.text "Text.")
             , Org.sec 1
                     [ Org.text "Heading title is a part of the headline element itself <BEGIN>"

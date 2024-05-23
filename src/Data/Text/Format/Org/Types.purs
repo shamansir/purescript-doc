@@ -55,7 +55,9 @@ newtype OrgDoc =
 
 
 data Block
-    = Of BlockKind String
+    = Of BlockKind String -- TODO: Support `Words` in the blocks like this
+    | IsDrawer Drawer
+    -- | Centered (NonEmptyArray Words) -- TODO
     | Footnote String (NonEmptyArray Words)
     | List ListItems
     | Table (NonEmptyArray TableRow)
@@ -74,14 +76,14 @@ data Words
     | DateTime { start :: OrgDateTime, end :: Maybe OrgDateTime }
     | ClockW Clock
     | DiaryW Diary
-    | FootnoteRef { label :: String, def :: Maybe String } -- FIXME: support using `Words` here may be, but it causes recursion fails?
+    | FootnoteRef { label :: String, def :: Maybe String } -- FIXME: support using `Words` here may be, but it causes recursion fails when exporting to JSON
     | Break
     -- | Space
     -- | Indent Int
     | JoinW Words Words
 
 
-data BlockKind
+data BlockKind -- TODO: split intro raw string / words kinds of block ?
     = Quote
     | Example
     | Center
@@ -259,6 +261,7 @@ data Item =
         { check :: Maybe Check
         , counter :: Maybe Counter
         , tag :: Maybe String
+        , drawers :: Array Drawer
         }
         (NonEmptyArray Words)
         (Maybe ListItems)
@@ -551,6 +554,7 @@ type BlockRow =
     ( kind :: Case2 BlockKind String
     -- , list :: ListItems
     -- , table :: Array TableRow
+    , drawer :: Case2 String (Array Words)
     , paragraph :: Case1 (Array Words)
     -- , keyword :: Case2 { name :: String, value :: String } Int -- FIXME:
     , footnote :: Case2 String (Array Words)
@@ -573,6 +577,7 @@ readBlock =
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         -- , keyword : Variant.match2 WithKeyword -- FIXME
+        , drawer : Variant.match2 $ \name ws -> IsDrawer $ Drawer { name, content : importWords ws } -- FIXME
         , footnote : Variant.match2 $ \label ws -> Footnote label $ importWords ws -- FIXME
         , paragraph : Variant.match1 $ Paragraph <<< importWords -- FIXME
         }
@@ -582,6 +587,7 @@ blockToVariant :: Block -> Variant BlockRow
 blockToVariant = case _ of
     Of kind value -> Variant.select2 (Proxy :: _ "kind") kind value
     Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ exportWords words
+    IsDrawer (Drawer { name, content }) -> Variant.select2 (Proxy :: _ "drawer") name $ exportWords content
     Footnote label words -> Variant.select2 (Proxy :: _ "footnote") label $ exportWords words
     -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
     WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
@@ -598,6 +604,7 @@ blockFromVariant =
         -- , table : ?wh -- Variant.todo $ Quote ""
         -- , keyword : Variant.uncase2 >>> Tuple.uncurry WithKeyword
         , paragraph : Variant.uncase1 >>> importWords >>> Paragraph
+        , drawer : Variant.uncase2 >>> map importWords >>> Tuple.uncurry \name content -> IsDrawer $ Drawer { name, content }
         , footnote : Variant.uncase2 >>> map importWords >>> Tuple.uncurry Footnote
         }
 

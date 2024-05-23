@@ -75,7 +75,14 @@ mark
     :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type)
      . Row.Cons label Case row' row ⇒ IsSymbol label
     => Proxy label → Variant row
-mark = flip Variant.inj Case
+mark = select
+
+
+select
+    :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type)
+     . Row.Cons label Case row' row ⇒ IsSymbol label
+    => Proxy label → Variant row
+select = flip Variant.inj Case
 
 
 select1 :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type) a

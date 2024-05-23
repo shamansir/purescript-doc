@@ -89,6 +89,8 @@ layoutBlock deep = case _ of
         </> layoutBlock deep block
     Org.JoinB blockA blockB ->
         layoutBlock deep blockA </> layoutBlock deep blockB
+    Org.IsDrawer drawer -> 
+        layoutDrawer drawer
     Org.Footnote label def ->
         D.bracket "[" (D.text "fn:" <> D.text label) "]"
             <+> D.stack (layoutWords <$> NEA.toArray def) -- FIXME: impoperly renders line breaks, see 04e
@@ -192,6 +194,12 @@ layoutSection (Org.Section section) =
                 # map (layoutKeyword AsProperty)
                 # D.joinWith D.break
                 # layoutDrawer' DrawerUpper "properties"
+        hasOtherDrawers = 
+            Array.length section.drawers > 0
+        otherDrawers = 
+            section.drawers 
+                # map layoutDrawer
+                # D.joinWith D.break
         planningLine =
             [ planningItem "TIMESTAMP" <$> planning.timestamp
             , planningItem "DEADLINE"  <$> planning.deadline
@@ -204,10 +212,12 @@ layoutSection (Org.Section section) =
             headlingLineCombined
                 <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
                 <> (if hasProperties then propertiesDrawer <> D.break else D.nil)
+                <> (if hasOtherDrawers then otherDrawers <> D.break else D.nil)
                 <> layoutDoc (deepAs section.level) section.doc
         else
             headlingLineCombined
             <> (if hasProperties then D.break <> propertiesDrawer <> D.break else D.nil)
+            <> (if hasOtherDrawers then otherDrawers <> D.break else D.nil)
             <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
 
 
@@ -376,6 +386,15 @@ layoutItems indent (Org.ListItems lt items) =
         itemLine idx (Org.Item opts ws (Just subs)) =
             itemLine idx (Org.Item opts ws Nothing)
             </> layoutItems (howDeep idx) subs
+        itemMaybeWithDrawers idx item@(Org.Item opts _ _) = 
+            if hasDrawers opts then drawers opts else D.nil 
+            <> itemLine idx item
+        hasDrawers opts = 
+            Array.length opts.drawers > 0
+        drawers opts = 
+            opts.drawers 
+                # map layoutDrawer
+                # D.joinWith D.break            
         howDeep idx = indent + case lt of
             Org.Bulleted -> 2
             Org.Plussed -> 2
@@ -383,9 +402,8 @@ layoutItems indent (Org.ListItems lt items) =
             Org.Numbered -> if (idx + 1) < 10 then 3 else 4
             Org.NumberedFrom n -> if (idx + n) < 10 then 3 else 4
             Org.Alphed -> 3
-
     in
-        D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemLine items
+        D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemMaybeWithDrawers items
 
 
 layoutKeyword :: KwMode -> Keywords.KeywordRec String -> Doc
