@@ -98,20 +98,22 @@ todoSequence pss fss =
      fssToString (Finish str) = String.toUpper str
 
 
-quote :: String -> Block
-quote = Of Quote
+quote :: Array Words -> Block
+quote = Of Quote <<< __neafws
 
 
-example :: String -> Block
-example = Of Example
+example :: Array Words -> Block
+example = Of Example <<< __neafws
 
 
 code :: String -> Block
-code = Of $ Code Nothing
+code str = Of (Code Nothing) $ __neafws [ Plain str ]
+-- code = Of $ Code Nothing
 
 
 codeIn :: String -> String -> Block
-codeIn = Of <<< Code <<< Just <<< Language
+codeIn lang str = Of (Code $ Just $ Language lang) $ __neafws [ Plain str ]
+-- codeIn = Of <<< Code <<< Just <<< ?wh <<< Language
 
 
 list :: ListType -> Array Item -> Block

@@ -55,7 +55,7 @@ newtype OrgDoc =
 
 
 data Block
-    = Of BlockKind String -- TODO: Support `Words` in the blocks like this
+    = Of BlockKind (NonEmptyArray Words)
     | IsDrawer Drawer
     -- | Centered (NonEmptyArray Words) -- TODO
     | Footnote String (NonEmptyArray Words)
@@ -83,14 +83,14 @@ data Words
     | JoinW Words Words
 
 
-data BlockKind -- TODO: split intro raw string / words kinds of block ?
+data BlockKind
     = Quote
     | Example
     | Center
     | Verse
     | Export
     | Comment
-    | Code (Maybe Language)
+    | Code (Maybe Language) -- TODO: separate, because doesn't support words
     | Custom String (Array String)
 
 
@@ -551,7 +551,7 @@ instance JsonOverVariant BlockKindRow BlockKind where
 
 
 type BlockRow =
-    ( kind :: Case2 BlockKind String
+    ( kind :: Case2 BlockKind (Array Words)
     -- , list :: ListItems
     -- , table :: Array TableRow
     , drawer :: Case2 String (Array Words)
@@ -573,7 +573,7 @@ readBlock :: Foreign -> F Block
 readBlock =
     readMatchImpl
         (Proxy :: _ BlockRow)
-        { kind : Variant.match2 Of
+        { kind : Variant.match2 $ \kind ws -> Of kind $ importWords ws
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         -- , keyword : Variant.match2 WithKeyword -- FIXME
@@ -585,21 +585,21 @@ readBlock =
 
 blockToVariant :: Block -> Variant BlockRow
 blockToVariant = case _ of
-    Of kind value -> Variant.select2 (Proxy :: _ "kind") kind value
+    Of kind words -> Variant.select2 (Proxy :: _ "kind") kind $ exportWords words
     Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ exportWords words
     IsDrawer (Drawer { name, content }) -> Variant.select2 (Proxy :: _ "drawer") name $ exportWords content
     Footnote label words -> Variant.select2 (Proxy :: _ "footnote") label $ exportWords words
     -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
-    WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
-    List _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
-    Table _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
-    JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote "QQQ" -- FIXME
+    WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
+    List _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
+    Table _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
+    JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
 
 
 blockFromVariant :: Variant BlockRow -> Block
 blockFromVariant =
     Variant.match
-        { kind : Variant.uncase2 >>> Tuple.uncurry Of
+        { kind : Variant.uncase2 >>> Tuple.uncurry \kind content -> Of kind $ importWords content
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         -- , keyword : Variant.uncase2 >>> Tuple.uncurry WithKeyword

@@ -26,11 +26,11 @@ test =
                 ]
             , Org.para1 $ Org.img_ (Org.irem "https://upload.wikimedia.org/wikipedia/commons/5/5d/Konigsberg_bridges.png")
             , Org.blank
-            , Org.example "monospace"
+            , Org.example [ Org.text "monospace" ]
             , Org.blank
             , Org.codeIn "emacs-lisp" "(message \"Hello world\")"
             , Org.blank
-            , Org.quote "Everything should be made as simple as possible,\nbut not any simpler ---Albert Einstein"
+            , Org.quote [ Org.text "Everything should be made as simple as possible,\nbut not any simpler ---Albert Einstein" ]
             ]
 
 -- TODO: horizontal lines + fixed width area

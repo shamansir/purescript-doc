@@ -64,14 +64,14 @@ layoutDoc deep (OrgDoc { zeroth, sections }) =
 
 layoutBlock :: Deep -> Org.Block -> Doc
 layoutBlock deep = case _ of
-    Org.Of conf str ->
+    Org.Of conf words ->
         case blockNameAndArgs conf of
             nameDoc /\ mbArgsDoc ->
                 D.nest' indent
                     [ D.text "#+begin_" <> nameDoc <> case mbArgsDoc of
                         Just argsDoc -> D.space <> argsDoc
                         Nothing -> D.nil
-                    , D.text str -- TODO: replace breaks, add markup
+                    , D.join $ layoutWords <$> NEA.toArray words
                     , D.text "#+end_" <> nameDoc
                     ]
     Org.List items ->
