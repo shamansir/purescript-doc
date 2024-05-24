@@ -27,6 +27,7 @@ import Org.Test.Test04b as Test04b
 import Org.Test.Test04c as Test04c
 import Org.Test.Test04d as Test04d
 import Org.Test.Test04e as Test04e
+import Org.Test.Test04f as Test04f
 import Org.Test.Test04g as Test04g
 import Org.Test.Test04h as Test04h
 import Org.Test.Test04i as Test04i
@@ -77,6 +78,9 @@ spec = do
 
     it "04. formatting: footnotes (e)" $
         qtest "04e-formatting-footnotes" $ Test04e.test
+
+    it "04. formatting: comments (f)" $
+        qtest "04f-formatting-comments" $ Test04f.test    
 
     it "04. formatting: dates (g)" $
         qtest "04g-formatting-dates" $ Test04g.test

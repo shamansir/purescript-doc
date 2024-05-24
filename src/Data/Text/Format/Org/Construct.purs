@@ -10,7 +10,7 @@ import Data.Foldable (class Foldable)
 import Data.Unfoldable (class Unfoldable)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.Array ((:))
-import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete, foldl, foldr, snoc) as Array
+import Data.Array (toUnfoldable, length, mapWithIndex, singleton, delete, foldl, foldr, snoc, intersperse) as Array
 import Data.Array.NonEmpty as NEA
 import Data.String (joinWith, toUpper) as String
 import Data.Newtype (unwrap, wrap)
@@ -114,6 +114,10 @@ code str = Of (Code Nothing) $ __neafws [ Plain str ]
 codeIn :: String -> String -> Block
 codeIn lang str = Of (Code $ Just $ Language lang) $ __neafws [ Plain str ]
 -- codeIn = Of <<< Code <<< Just <<< ?wh <<< Language
+
+
+bcomment :: Array String -> Block
+bcomment ws = Of Comment $ __neafws $ Array.intersperse Break $ Plain <$> ws
 
 
 list :: ListType -> Array Item -> Block
@@ -351,6 +355,10 @@ br = Break
 
 marked :: MarkupKey -> String -> Words
 marked = Marked
+
+
+icomment :: String -> Words
+icomment = marked $ Inline IComment
 
 
 {-
@@ -660,6 +668,10 @@ with_kw name value = WithKeyword $ kw name value
 
 with_kws :: Array Keyword -> Block -> Block
 with_kws kws block = Array.foldr WithKeyword block kws
+
+
+lcomment :: Array String -> Block
+lcomment = LComment
 
 
 {-

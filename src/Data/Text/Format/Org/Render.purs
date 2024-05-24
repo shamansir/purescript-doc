@@ -93,7 +93,14 @@ layoutBlock deep = case _ of
             # splitByBreak
             # map (map \ws -> D.text ": " <> layoutWords ws)
             # map D.join
-            # D.nest' indent            
+            # D.nest' indent
+    Org.LComment lines ->
+        lines
+            # map Org.Plain
+            # splitByBreak
+            # map (map \ws -> D.text "# " <> layoutWords ws)
+            # map D.join
+            # D.nest' 0            
     Org.WithKeyword (Keywords.Keyword kwd) block ->
         D.nest indent (layoutKeyword AsKeyword kwd)
         </> layoutBlock deep block
@@ -280,8 +287,9 @@ layoutWords = case _ of
             Org.Strike -> D.wrap "+" doc
             Org.InlineCode -> D.wrap "~" doc
             Org.Verbatim -> D.wrap "=" doc
-            Org.Highlight -> doc -- FIXME
+            Org.Highlight -> D.wrap "^^" doc
             Org.Error -> D.wrap "X" doc
+            Org.Inline key -> D.bracket ("@@" <> inlineKey key <> ":") doc "@@"
             Org.And mka mkb -> markWith mkb $ markWith mka doc
         linkTrg = case _ of
             Org.Remote url -> D.text url
@@ -293,6 +301,9 @@ layoutWords = case _ of
         layoutClock c =
             D.text (showdd $ c.hour) <> D.text ":" <>
             D.text (showdd $ c.minute)
+        inlineKey = case _ of
+            Org.IHtml -> "html"
+            Org.IComment -> "comment"
 
 
 layoutDateTime :: Org.OrgDateTime -> Doc

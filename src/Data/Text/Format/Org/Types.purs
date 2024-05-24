@@ -66,6 +66,7 @@ data Block
     | Paragraph (NonEmptyArray Words)
     | WithKeyword Keyword Block
     | HRule
+    | LComment (Array String)
     | FixedWidth (NonEmptyArray Words)
     | JoinB Block Block
 
@@ -98,13 +99,19 @@ data BlockKind
     | Custom String (Array String)
 
 
+data InlineKey
+    = IComment
+    | IHtml
+
+
 data MarkupKey
     = Bold
     | Italic
     | Highlight
     | Underline
     | Verbatim
-    | InlineCode
+    | InlineCode 
+    | Inline InlineKey
     | Strike
     | Error
     | And MarkupKey MarkupKey
@@ -563,6 +570,7 @@ type BlockRow =
     , footnote :: Case2 String (Array Words)
     , hr :: Case
     , fixed :: Case1 (Array Words)
+    , comment :: Case1 (Array String)
     )
 
 
@@ -587,6 +595,7 @@ readBlock =
         , paragraph : Variant.use1 $ Paragraph <<< importWords
         , hr : Variant.use HRule
         , fixed : Variant.use1 $ FixedWidth <<< importWords
+        , comment : Variant.use1 LComment
         }
 
 
@@ -598,6 +607,7 @@ blockToVariant = case _ of
     Footnote label words -> Variant.select2 (Proxy :: _ "footnote") label $ exportWords words
     HRule -> Variant.select (Proxy :: _ "hr")
     FixedWidth words -> Variant.select1 (Proxy :: _ "fixed") $ exportWords words
+    LComment lines -> Variant.select1 (Proxy :: _ "comment") lines
     -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
     WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
     List _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
@@ -617,6 +627,7 @@ blockFromVariant =
         , paragraph : Variant.uncase1 >>> importWords >>> Paragraph
         , drawer : Variant.uncase2 >>> map importWords >>> Tuple.uncurry \name content -> IsDrawer $ Drawer { name, content }
         , footnote : Variant.uncase2 >>> map importWords >>> Tuple.uncurry Footnote
+        , comment : Variant.uncase1 >>> LComment
         }
 
 
@@ -628,6 +639,43 @@ instance JsonOverVariant BlockRow Block where
     fromVariant = blockFromVariant
 
 
+type InlineKeyRow =
+    ( comment :: Case
+    , html :: Case
+    )
+
+
+readInlineKey :: Foreign -> F InlineKey
+readInlineKey =
+    readMatchImpl
+        (Proxy :: _ InlineKeyRow)
+        { comment : Variant.use IComment
+        , html : Variant.use IHtml
+        }
+
+
+inlineKeyToVariant :: InlineKey -> Variant InlineKeyRow
+inlineKeyToVariant = case _ of
+    IComment -> Variant.select (Proxy :: _ "comment")
+    IHtml -> Variant.select (Proxy :: _ "html")
+
+
+inlineKeyFromVariant :: Variant InlineKeyRow -> InlineKey
+inlineKeyFromVariant = 
+    Variant.match
+        { comment : Variant.uncase IComment
+        , html : Variant.uncase IHtml
+        }
+
+
+instance ReadForeign InlineKey where readImpl = readImplVar
+instance WriteForeign InlineKey where writeImpl = writeImplVar
+instance JsonOverVariant InlineKeyRow InlineKey where
+    readForeign = readInlineKey
+    toVariant = inlineKeyToVariant
+    fromVariant = inlineKeyFromVariant        
+
+
 type MarkupKeyRow =
     ( bold :: Case
     , italic :: Case
@@ -635,6 +683,7 @@ type MarkupKeyRow =
     , underline :: Case
     , verbatim :: Case
     , inlineCode :: Case
+    , inline :: Case1 InlineKey
     , strike :: Case
     , error :: Case
     )
@@ -650,6 +699,7 @@ readMarkupKey =
         , underline : Variant.use Underline
         , verbatim : Variant.use Verbatim
         , inlineCode : Variant.use InlineCode
+        , inline : Variant.use1 Inline 
         , strike : Variant.use Strike
         , error : Variant.use Error -- FIXME
         }
@@ -663,6 +713,7 @@ markupKeyToVariant = case _ of
     Underline -> Variant.select (Proxy :: _ "underline")
     Verbatim -> Variant.select (Proxy :: _ "verbatim")
     InlineCode -> Variant.select (Proxy :: _ "inlineCode")
+    Inline key -> Variant.select1 (Proxy :: _ "inline") key
     Strike -> Variant.select (Proxy :: _ "strike")
     Error -> Variant.select (Proxy :: _ "error")
     And _ _ -> Variant.select (Proxy :: _ "error") -- we do not encode `And`, we unwrap it in a list of other keys
@@ -677,6 +728,7 @@ markupKeyFromVariant =
         , underline : Variant.uncase Underline
         , verbatim : Variant.uncase Verbatim
         , inlineCode : Variant.uncase InlineCode
+        , inline : Variant.uncase1 >>> Inline
         , strike : Variant.uncase Strike
         , error : Variant.uncase Error -- FIXME
         }
