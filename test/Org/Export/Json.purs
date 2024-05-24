@@ -17,7 +17,7 @@ import Data.Text.Format.Org.Types (OrgFile, Check(..))
 import Data.Text.Format.Org.Construct as Org
 import Data.Text.Format.Org.Render as R
 
-import Yoga.JSON (read_, read, readJSON, write, writeJSON)
+import Yoga.JSON (E, read_, read, readJSON, write, writeJSON)
 
 import Node.Encoding (Encoding(..))
 import Node.FS.Sync (readTextFile)
@@ -79,7 +79,13 @@ spec = do
         qjsontest "02b-meta-special" $ Test02b.test
 
     it "03. works with basic headings and levels (a)" $
-        qjsontest "03a-headings-with-no-content" $ Test03a.test        
+        qjsontest "03a-headings-with-no-content" $ Test03a.test
+
+    it "03. works with heading with some content (b)" $
+        qjsontest "03b-headings-with-content" $ Test03b.test
+
+    it "03. works with headings with planning (c)" $
+        qjsontest "03c-headings-with-planning" $ Test03c.test        
 
 
 renderOptions :: D.Options
@@ -92,19 +98,19 @@ qjsontest
     => String -> OrgFile -> m Unit
 qjsontest slugId orgFile = do
     let orgFileJson = writeJSON orgFile
-    let eFromJsonTxt = readJSON orgFileJson
+    let eFromJsonTxt = (readJSON orgFileJson :: E OrgFile)
     -- liftEffect $ Console.log orgFileJson
-    case eFromJsonTxt of 
-        Right orgFileFromJsonTxt -> do
-            writeJSON orgFileFromJsonTxt `shouldEqual` orgFileJson
-            (D.render renderOptions $ R.layout orgFile)
-                    `shouldEqual` (D.render renderOptions $ R.layout orgFileFromJsonTxt)
-        Left errors -> 
-            traverse_ (F.renderForeignError >>> fail) errors
     let eFromJsonF = read $ write orgFile
     case eFromJsonF of 
         Right orgFileFromJsonF -> 
             (D.render renderOptions $ R.layout orgFile)
                     `shouldEqual` (D.render renderOptions $ R.layout orgFileFromJsonF)
+        Left errors -> 
+            traverse_ (F.renderForeignError >>> fail) errors
+    case eFromJsonTxt of 
+        Right orgFileFromJsonTxt -> do
+            writeJSON orgFileFromJsonTxt `shouldEqual` orgFileJson
+            (D.render renderOptions $ R.layout orgFile)
+                    `shouldEqual` (D.render renderOptions $ R.layout orgFileFromJsonTxt)
         Left errors -> 
             traverse_ (F.renderForeignError >>> fail) errors

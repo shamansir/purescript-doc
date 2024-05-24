@@ -1327,9 +1327,9 @@ loadDateTime =
             wrap
                 { date :
                     canonicalDate
-                        (toEnum day # fromMaybe bottom)
-                        (toEnum month # fromMaybe bottom)
                         (toEnum year # fromMaybe bottom)
+                        (toEnum month # fromMaybe bottom)
+                        (toEnum day # fromMaybe bottom)
                 , time : load <$> time
                 , delay
                 , repeat
@@ -1497,7 +1497,7 @@ convertSection sectionId (Section section) =
         , priority : toVariant <$> section.priority
         , cookie : toVariant <$> section.cookie
         , check : toVariant <$> section.check
-        , heading : [] -- FIXME: TODO
+        , heading : exportWords section.heading
         , level : section.level
         , planning : convert section.planning
         , props : [] -- FIXME: TODO
@@ -1514,7 +1514,7 @@ loadSection allSections section =
         , priority : fromVariant <$> section.priority
         , cookie : fromVariant <$> section.cookie
         , check : fromVariant <$> section.check
-        , heading : NEA.singleton $ Plain "$$" -- FIXME: TODO
+        , heading : importWords section.heading
         , level : section.level
         , tags : [] -- FIXME: TODO
         , planning : load section.planning
