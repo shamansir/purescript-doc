@@ -638,6 +638,14 @@ fn_ :: String -> Array Words -> Block
 fn_ label = Footnote label <<< __neafws
 
 
+hr :: Block
+hr = HRule
+
+
+fw :: Array Words -> Block
+fw = FixedWidth <<< __neafws
+
+
 kw :: String -> String -> Keyword
 kw = Keywords.kw
 

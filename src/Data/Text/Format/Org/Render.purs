@@ -85,6 +85,15 @@ layoutBlock deep = case _ of
             # map (map layoutWords)
             # map D.join
             # D.nest' indent
+    Org.HRule ->
+        D.text "-----"
+    Org.FixedWidth words ->
+        words
+            # NEA.toArray
+            # splitByBreak
+            # map (map \ws -> D.text ": " <> layoutWords ws)
+            # map D.join
+            # D.nest' indent            
     Org.WithKeyword (Keywords.Keyword kwd) block ->
         D.nest indent (layoutKeyword AsKeyword kwd)
         </> layoutBlock deep block

@@ -71,13 +71,6 @@ readMatchImpl _ rec f =
         >>= Variant.match rec :: F a
 
 
-mark
-    :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type)
-     . Row.Cons label Case row' row ⇒ IsSymbol label
-    => Proxy label → Variant row
-mark = select
-
-
 select
     :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type)
      . Row.Cons label Case row' row ⇒ IsSymbol label
@@ -97,10 +90,6 @@ select2 :: forall (label :: Symbol) (row' :: Row Type) (row ::Row Type) a b
 select2 label a b = Variant.inj label $ Case2 a b
 
 
-matched :: forall a. a -> (Case -> F a)
-matched = todo
-
-
 uncase :: forall a. a -> Case -> a
 uncase = const
 
@@ -113,12 +102,16 @@ uncase2 :: forall a b . Case2 a b -> a /\ b
 uncase2 (Case2 a b) = a /\ b
 
 
-match1 :: forall a x. (a -> x) -> (Case1 a -> F x)
-match1 f = except <<< Right <<< f <<< uncase1
+use :: forall a. a -> (Case -> F a)
+use = const <<< except <<< Right
 
 
-match2 :: forall a b x. (a -> b -> x) -> (Case2 a b -> F x)
-match2 f = except <<< Right <<< uncurry f <<< uncase2
+use1 :: forall a x. (a -> x) -> (Case1 a -> F x)
+use1 f = except <<< Right <<< f <<< uncase1
+
+
+use2 :: forall a b x. (a -> b -> x) -> (Case2 a b -> F x)
+use2 f = except <<< Right <<< uncurry f <<< uncase2
 
 
 todo :: forall a x. a -> (x -> F a)

@@ -31,8 +31,10 @@ import Data.Bifunctor (lmap, bimap)
 import Yoga.JSON (class ReadForeign, class WriteForeign, class ReadForeignFields, class WriteForeignFields, class ReadForeignVariant, class WriteForeignVariant, readImpl, writeImpl, writeJSON)
 import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
 import Yoga.Json.Extra
-    ( mark, matched, match1, match2, select1, select2, todo
-    , uncase, uncase1, uncase2 ) as Variant
+    ( use, use1, use2
+    , select, select1, select2, todo
+    , uncase, uncase1, uncase2 
+    ) as Variant
 
 import Data.Text.Format.Org.Keywords (Keywords, JsonKeywords, fromKeywords, toKeywords)
 import Data.Text.Format.Org.Keywords (Keyword, empty) as Keywords
@@ -63,6 +65,8 @@ data Block
     | Table (Maybe String) (NonEmptyArray TableRow)
     | Paragraph (NonEmptyArray Words)
     | WithKeyword Keyword Block
+    | HRule
+    | FixedWidth (NonEmptyArray Words)
     | JoinB Block Block
 
 
@@ -207,7 +211,6 @@ newtype Diary =
         { expr :: String
         , time :: Maybe OrgTimeRange
         }
-
 
 
 data Todo
@@ -375,17 +378,17 @@ readCheck :: Foreign -> F Check
 readCheck =
     readMatchImpl
         (Proxy :: _ CheckRow)
-        { check : Variant.matched Check
-        , uncheck : Variant.matched Uncheck
-        , halfcheck : Variant.matched Halfcheck
+        { check : Variant.use Check
+        , uncheck : Variant.use Uncheck
+        , halfcheck : Variant.use Halfcheck
         }
 
 
 checkToVariant :: Check -> Variant CheckRow
 checkToVariant = case _ of
-    Check -> Variant.mark (Proxy :: _ "check")
-    Uncheck -> Variant.mark (Proxy :: _ "uncheck")
-    Halfcheck -> Variant.mark (Proxy :: _ "halfcheck")
+    Check -> Variant.select (Proxy :: _ "check")
+    Uncheck -> Variant.select (Proxy :: _ "uncheck")
+    Halfcheck -> Variant.select (Proxy :: _ "halfcheck")
 
 
 
@@ -421,9 +424,9 @@ readLinkTarget :: Foreign -> F LinkTarget
 readLinkTarget =
     readMatchImpl
         (Proxy :: _ LinkTargetRow)
-        { remote : Variant.match1 Remote
-        , local : Variant.match1 Local
-        , heading : Variant.match1 Heading
+        { remote : Variant.use1 Remote
+        , local : Variant.use1 Local
+        , heading : Variant.use1 Heading
         }
 
 
@@ -462,8 +465,8 @@ readImageSource :: Foreign -> F ImageSource
 readImageSource =
     readMatchImpl
         (Proxy :: _ ImageSourceRow)
-        { remote : Variant.match1 RemoteSrc
-        , local : Variant.match1 LocalSrc
+        { remote : Variant.use1 RemoteSrc
+        , local : Variant.use1 LocalSrc
         }
 
 
@@ -505,25 +508,25 @@ readBlockKind :: Foreign -> F BlockKind
 readBlockKind =
     readMatchImpl
         (Proxy :: _ BlockKindRow)
-        { quote : Variant.matched Quote
-        , example : Variant.matched Example
-        , center : Variant.matched Center
-        , verse : Variant.matched Verse
-        , export : Variant.matched Export
-        , comment : Variant.matched Comment
-        , code : Variant.match1 Code
-        , custom : Variant.match2 Custom
+        { quote : Variant.use Quote
+        , example : Variant.use Example
+        , center : Variant.use Center
+        , verse : Variant.use Verse
+        , export : Variant.use Export
+        , comment : Variant.use Comment
+        , code : Variant.use1 Code
+        , custom : Variant.use2 Custom
         }
 
 
 blockKindToVariant :: BlockKind -> Variant BlockKindRow
 blockKindToVariant = case _ of
-    Quote -> Variant.mark (Proxy :: _ "quote")
-    Example -> Variant.mark (Proxy :: _ "example")
-    Center -> Variant.mark (Proxy :: _ "center")
-    Verse -> Variant.mark (Proxy :: _ "verse")
-    Export -> Variant.mark (Proxy :: _ "export")
-    Comment -> Variant.mark (Proxy :: _ "comment")
+    Quote -> Variant.select (Proxy :: _ "quote")
+    Example -> Variant.select (Proxy :: _ "example")
+    Center -> Variant.select (Proxy :: _ "center")
+    Verse -> Variant.select (Proxy :: _ "verse")
+    Export -> Variant.select (Proxy :: _ "export")
+    Comment -> Variant.select (Proxy :: _ "comment")
     Code mbLang -> Variant.select1 (Proxy :: _ "code") mbLang
     Custom name args -> Variant.select2 (Proxy :: _ "custom") name args
 
@@ -558,6 +561,8 @@ type BlockRow =
     , paragraph :: Case1 (Array Words)
     -- , keyword :: Case2 { name :: String, value :: String } Int -- FIXME:
     , footnote :: Case2 String (Array Words)
+    , hr :: Case
+    , fixed :: Case1 (Array Words)
     )
 
 
@@ -573,13 +578,15 @@ readBlock :: Foreign -> F Block
 readBlock =
     readMatchImpl
         (Proxy :: _ BlockRow)
-        { kind : Variant.match2 $ \kind ws -> Of kind $ importWords ws
+        { kind : Variant.use2 $ \kind ws -> Of kind $ importWords ws
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
-        -- , keyword : Variant.match2 WithKeyword -- FIXME
-        , drawer : Variant.match2 $ \name ws -> IsDrawer $ Drawer { name, content : importWords ws } -- FIXME
-        , footnote : Variant.match2 $ \label ws -> Footnote label $ importWords ws -- FIXME
-        , paragraph : Variant.match1 $ Paragraph <<< importWords -- FIXME
+        -- , keyword : Variant.use2 WithKeyword -- FIXME
+        , drawer : Variant.use2 $ \name ws -> IsDrawer $ Drawer { name, content : importWords ws } -- FIXME
+        , footnote : Variant.use2 $ \label ws -> Footnote label $ importWords ws
+        , paragraph : Variant.use1 $ Paragraph <<< importWords
+        , hr : Variant.use HRule
+        , fixed : Variant.use1 $ FixedWidth <<< importWords
         }
 
 
@@ -589,6 +596,8 @@ blockToVariant = case _ of
     Paragraph words -> Variant.select1 (Proxy :: _ "paragraph") $ exportWords words
     IsDrawer (Drawer { name, content }) -> Variant.select2 (Proxy :: _ "drawer") name $ exportWords content
     Footnote label words -> Variant.select2 (Proxy :: _ "footnote") label $ exportWords words
+    HRule -> Variant.select (Proxy :: _ "hr")
+    FixedWidth words -> Variant.select1 (Proxy :: _ "fixed") $ exportWords words
     -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
     WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
     List _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
@@ -603,6 +612,8 @@ blockFromVariant =
         -- , list : ?wh -- Variant.todo $ Quote ""
         -- , table : ?wh -- Variant.todo $ Quote ""
         -- , keyword : Variant.uncase2 >>> Tuple.uncurry WithKeyword
+        , hr : Variant.uncase HRule
+        , fixed : Variant.uncase1 >>> importWords >>> FixedWidth
         , paragraph : Variant.uncase1 >>> importWords >>> Paragraph
         , drawer : Variant.uncase2 >>> map importWords >>> Tuple.uncurry \name content -> IsDrawer $ Drawer { name, content }
         , footnote : Variant.uncase2 >>> map importWords >>> Tuple.uncurry Footnote
@@ -633,28 +644,28 @@ readMarkupKey :: Foreign -> F MarkupKey
 readMarkupKey =
     readMatchImpl
         (Proxy :: _ MarkupKeyRow)
-        { bold : Variant.matched Bold
-        , italic : Variant.matched Italic
-        , highlight : Variant.matched Highlight
-        , underline : Variant.matched Underline
-        , verbatim : Variant.matched Verbatim
-        , inlineCode : Variant.matched InlineCode
-        , strike : Variant.matched Strike
-        , error : Variant.matched Error -- FIXME
+        { bold : Variant.use Bold
+        , italic : Variant.use Italic
+        , highlight : Variant.use Highlight
+        , underline : Variant.use Underline
+        , verbatim : Variant.use Verbatim
+        , inlineCode : Variant.use InlineCode
+        , strike : Variant.use Strike
+        , error : Variant.use Error -- FIXME
         }
 
 
 markupKeyToVariant :: MarkupKey -> Variant MarkupKeyRow
 markupKeyToVariant = case _ of
-    Bold -> Variant.mark (Proxy :: _ "bold")
-    Italic -> Variant.mark (Proxy :: _ "italic")
-    Highlight -> Variant.mark (Proxy :: _ "highlight")
-    Underline -> Variant.mark (Proxy :: _ "underline")
-    Verbatim -> Variant.mark (Proxy :: _ "verbatim")
-    InlineCode -> Variant.mark (Proxy :: _ "inlineCode")
-    Strike -> Variant.mark (Proxy :: _ "strike")
-    Error -> Variant.mark (Proxy :: _ "error")
-    And _ _ -> Variant.mark (Proxy :: _ "error") -- we do not encode `And`, we unwrap it in a list of other keys
+    Bold -> Variant.select (Proxy :: _ "bold")
+    Italic -> Variant.select (Proxy :: _ "italic")
+    Highlight -> Variant.select (Proxy :: _ "highlight")
+    Underline -> Variant.select (Proxy :: _ "underline")
+    Verbatim -> Variant.select (Proxy :: _ "verbatim")
+    InlineCode -> Variant.select (Proxy :: _ "inlineCode")
+    Strike -> Variant.select (Proxy :: _ "strike")
+    Error -> Variant.select (Proxy :: _ "error")
+    And _ _ -> Variant.select (Proxy :: _ "error") -- we do not encode `And`, we unwrap it in a list of other keys
 
 
 markupKeyFromVariant :: Variant MarkupKeyRow -> MarkupKey
@@ -756,18 +767,18 @@ readWords :: Foreign -> F Words
 readWords =
     readMatchImpl
         (Proxy :: _ WordsRow)
-        { marked : Variant.match2 $ Marked <<< rowArrayToMarkupKey
-        , link : Variant.match2 Link
-        , image : Variant.match1 Image
-        , punct : Variant.match1 $ Punct <<< codePointFromChar
-        , plain : Variant.match1 Plain
-        , markup : Variant.match1 Markup
-        , dateTime : Variant.match2 $ \start end -> DateTime { start : load start, end : load <$> end }
-        , diary : Variant.match1 $ DiaryW <<< load
-        , clock : Variant.match1 $ ClockW <<< wrap
-        , break : Variant.matched Break
-        , fnref : Variant.match2 $ \label def -> FootnoteRef { label, def }
-        -- , join : Variant.match2 JoinW
+        { marked : Variant.use2 $ Marked <<< rowArrayToMarkupKey
+        , link : Variant.use2 Link
+        , image : Variant.use1 Image
+        , punct : Variant.use1 $ Punct <<< codePointFromChar
+        , plain : Variant.use1 Plain
+        , markup : Variant.use1 Markup
+        , dateTime : Variant.use2 $ \start end -> DateTime { start : load start, end : load <$> end }
+        , diary : Variant.use1 $ DiaryW <<< load
+        , clock : Variant.use1 $ ClockW <<< wrap
+        , break : Variant.use Break
+        , fnref : Variant.use2 $ \label def -> FootnoteRef { label, def }
+        -- , join : Variant.use2 JoinW
         }
 
 
@@ -782,7 +793,7 @@ wordsToVariant = case _ of
     DateTime { start, end } -> Variant.select2 (Proxy :: _ "dateTime") (convert start) (convert <$> end)
     ClockW clock -> Variant.select1 (Proxy :: _ "clock") $ unwrap clock
     DiaryW diary -> Variant.select1 (Proxy :: _ "diary") $ convert diary
-    Break -> Variant.mark (Proxy :: _ "break")
+    Break -> Variant.select (Proxy :: _ "break")
     FootnoteRef { label, def } -> Variant.select2 (Proxy :: _ "fnref") label def
     JoinW wA wB -> Variant.select1 (Proxy :: _ "plain") "JOIN" -- FIXME
 
@@ -824,17 +835,17 @@ readCookie :: Foreign -> F Cookie
 readCookie =
     readMatchImpl
         (Proxy :: _ CookieRow)
-        { split : Variant.matched Split
-        , percent : Variant.matched Percent
-        , pie : Variant.matched Pie
+        { split : Variant.use Split
+        , percent : Variant.use Percent
+        , pie : Variant.use Pie
         }
 
 
 cookieToVariant :: Cookie -> Variant CookieRow
 cookieToVariant = case _ of
-    Split -> Variant.mark (Proxy :: _ "split")
-    Percent -> Variant.mark (Proxy :: _ "percent")
-    Pie -> Variant.mark (Proxy :: _ "pie")
+    Split -> Variant.select (Proxy :: _ "split")
+    Percent -> Variant.select (Proxy :: _ "percent")
+    Pie -> Variant.select (Proxy :: _ "pie")
 
 
 cookieFromVariant :: Variant CookieRow -> Cookie
@@ -864,8 +875,8 @@ readPriority :: Foreign -> F Priority
 readPriority =
     readMatchImpl
         (Proxy :: _ PriorityRow)
-        { alpha : Variant.match1 Alpha
-        , num : Variant.match1 Num
+        { alpha : Variant.use1 Alpha
+        , num : Variant.use1 Num
         }
 
 
@@ -903,18 +914,18 @@ readTodo :: Foreign -> F Todo
 readTodo =
     readMatchImpl
         (Proxy :: _ TodoRow)
-        { todo : Variant.matched Todo
-        , doing : Variant.matched Doing
-        , done : Variant.matched Done
-        , custom : Variant.match1 CustomKW
+        { todo : Variant.use Todo
+        , doing : Variant.use Doing
+        , done : Variant.use Done
+        , custom : Variant.use1 CustomKW
         }
 
 
 todoToVariant :: Todo -> Variant TodoRow
 todoToVariant = case _ of
-    Todo -> Variant.mark (Proxy :: _ "todo")
-    Doing -> Variant.mark (Proxy :: _ "doing")
-    Done -> Variant.mark (Proxy :: _ "done")
+    Todo -> Variant.select (Proxy :: _ "todo")
+    Doing -> Variant.select (Proxy :: _ "doing")
+    Done -> Variant.select (Proxy :: _ "done")
     CustomKW s -> Variant.select1 (Proxy :: _ "custom") s
 
 
@@ -950,23 +961,23 @@ readListType :: Foreign -> F ListType
 readListType =
     readMatchImpl
         (Proxy :: _ ListTypeRow)
-        { bulleted : Variant.matched Bulleted
-        , plussed : Variant.matched Plussed
-        , numbered : Variant.matched Numbered
-        , numberedFrom : Variant.match1 NumberedFrom
-        , hyphened : Variant.matched Hyphened
-        , alphed : Variant.matched Alphed
+        { bulleted : Variant.use Bulleted
+        , plussed : Variant.use Plussed
+        , numbered : Variant.use Numbered
+        , numberedFrom : Variant.use1 NumberedFrom
+        , hyphened : Variant.use Hyphened
+        , alphed : Variant.use Alphed
         }
 
 
 listTypeToVariant :: ListType -> Variant ListTypeRow
 listTypeToVariant = case _ of
-    Bulleted -> Variant.mark (Proxy :: _ "bulleted")
-    Plussed -> Variant.mark (Proxy :: _ "plussed")
-    Numbered -> Variant.mark (Proxy :: _ "numbered")
+    Bulleted -> Variant.select (Proxy :: _ "bulleted")
+    Plussed -> Variant.select (Proxy :: _ "plussed")
+    Numbered -> Variant.select (Proxy :: _ "numbered")
     NumberedFrom n -> Variant.select1 (Proxy :: _ "numberedFrom") n
-    Hyphened -> Variant.mark (Proxy :: _ "hyphened")
-    Alphed -> Variant.mark (Proxy :: _ "alphed")
+    Hyphened -> Variant.select (Proxy :: _ "hyphened")
+    Alphed -> Variant.select (Proxy :: _ "alphed")
 
 
 listTypeFromVariant :: Variant ListTypeRow -> ListType
@@ -1002,21 +1013,21 @@ readInterval :: Foreign -> F Interval
 readInterval =
     readMatchImpl
         (Proxy :: _ IntervalRow)
-        { hour : Variant.matched Hour
-        , day : Variant.matched Day
-        , week : Variant.matched Week
-        , month : Variant.matched Month
-        , year : Variant.matched Year
+        { hour : Variant.use Hour
+        , day : Variant.use Day
+        , week : Variant.use Week
+        , month : Variant.use Month
+        , year : Variant.use Year
         }
 
 
 intervalToVariant :: Interval -> Variant IntervalRow
 intervalToVariant = case _ of
-    Hour  -> Variant.mark (Proxy :: _ "hour")
-    Day   -> Variant.mark (Proxy :: _ "day")
-    Week  -> Variant.mark (Proxy :: _ "week")
-    Month -> Variant.mark (Proxy :: _ "month")
-    Year  -> Variant.mark (Proxy :: _ "year")
+    Hour  -> Variant.select (Proxy :: _ "hour")
+    Day   -> Variant.select (Proxy :: _ "day")
+    Week  -> Variant.select (Proxy :: _ "week")
+    Month -> Variant.select (Proxy :: _ "month")
+    Year  -> Variant.select (Proxy :: _ "year")
 
 
 intervalFromVariant :: Variant IntervalRow -> Interval
@@ -1049,17 +1060,17 @@ readRepeaterMode :: Foreign -> F RepeaterMode
 readRepeaterMode =
     readMatchImpl
         (Proxy :: _ RepeaterModeRow)
-        { single : Variant.matched Single
-        , jump : Variant.matched Jump
-        , fromToday : Variant.matched FromToday
+        { single : Variant.use Single
+        , jump : Variant.use Jump
+        , fromToday : Variant.use FromToday
         }
 
 
 repeaterModeToVariant :: RepeaterMode -> Variant RepeaterModeRow
 repeaterModeToVariant = case _ of
-    Single    -> Variant.mark (Proxy :: _ "single")
-    Jump      -> Variant.mark (Proxy :: _ "jump")
-    FromToday -> Variant.mark (Proxy :: _ "fromToday")
+    Single    -> Variant.select (Proxy :: _ "single")
+    Jump      -> Variant.select (Proxy :: _ "jump")
+    FromToday -> Variant.select (Proxy :: _ "fromToday")
 
 
 repeaterModeFromVariant :: Variant RepeaterModeRow -> RepeaterMode
@@ -1089,15 +1100,15 @@ readDelayMode :: Foreign -> F DelayMode
 readDelayMode =
     readMatchImpl
         (Proxy :: _ DelayModeRow)
-        { one : Variant.matched One
-        , all : Variant.matched All
+        { one : Variant.use One
+        , all : Variant.use All
         }
 
 
 delayModeToVariant :: DelayMode -> Variant DelayModeRow
 delayModeToVariant = case _ of
-    One -> Variant.mark (Proxy :: _ "one")
-    All -> Variant.mark (Proxy :: _ "all")
+    One -> Variant.select (Proxy :: _ "one")
+    All -> Variant.select (Proxy :: _ "all")
 
 
 delayModeFromVariant :: Variant DelayModeRow -> DelayMode

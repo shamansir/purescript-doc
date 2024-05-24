@@ -31,6 +31,10 @@ test =
             , Org.codeIn "emacs-lisp" "(message \"Hello world\")"
             , Org.blank
             , Org.quote [ Org.text "Everything should be made as simple as possible,\nbut not any simpler ---Albert Einstein" ]
+            , Org.blank
+            , Org.hr 
+            , Org.blank
+            , Org.fw [ Org.text "Some fixed-width text here", Org.br, Org.text "Containing several lines", Org.br, Org.text "Is it understandable?" ]
             ]
 
 -- TODO: horizontal lines + fixed width area
