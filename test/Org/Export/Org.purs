@@ -96,6 +96,8 @@ spec = do
         qtest "04i-formatting-drawers" $ Test04i.test
 
 
+renderOptions :: D.Options
+renderOptions = { break : D.All, indent : D.Spaces 1 }
 
 
 qtest
@@ -104,5 +106,5 @@ qtest
     => String -> OrgFile -> m Unit
 qtest fileSlug orgFile = do
     orgTestText <- liftEffect $ readTextFile UTF8 ("./test/examples/org-test/" <> fileSlug <> ".org")
-    (D.render { break : D.All, indent : D.Spaces 1 } $ R.layout orgFile)
+    (D.render renderOptions $ R.layout orgFile)
             `shouldEqual` orgTestText
