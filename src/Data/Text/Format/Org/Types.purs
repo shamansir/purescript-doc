@@ -1431,6 +1431,7 @@ type SectionRow =
     , comment :: Boolean
     -- , drawers :: Array Drawer -- FIXME: TODO
     , doc :: Record DocRow
+    , tags :: Array String
     )
 
 
@@ -1500,7 +1501,8 @@ convertSection sectionId (Section section) =
         , heading : exportWords section.heading
         , level : section.level
         , planning : convert section.planning
-        , props : [] -- FIXME: TODO
+        , props : fromKeywords section.props
+        , tags : section.tags
         , comment : section.comment
         , doc : convertedDoc
         }
@@ -1516,10 +1518,10 @@ loadSection allSections section =
         , check : fromVariant <$> section.check
         , heading : importWords section.heading
         , level : section.level
-        , tags : [] -- FIXME: TODO
+        , tags : section.tags
         , planning : load section.planning
         , drawers : [] -- FIXME: TODO
-        , props : Keywords.empty  -- FIXME: TODO
+        , props : toKeywords section.props
         , comment : section.comment
         , doc : loadDoc allSections section.doc
         }

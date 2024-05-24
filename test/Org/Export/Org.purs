@@ -63,7 +63,7 @@ spec = do
         qtest "03c-headings-with-planning" $ Test03c.test
 
     it "03. works with headings with tags (d)" $
-        qtest "03d-headings-with-tags" $ Test03d.test        
+        qtest "03d-headings-with-tags" $ Test03d.test
 
     it "03. works with basic structure (e)" $
         qtest "03e-basic-structuring" $ Test03e.test
@@ -78,13 +78,13 @@ spec = do
         qtest "04c-formatting-lists" $ Test04c.test
 
     it "04. formatting: tables (d)" $
-        qtest "04d-formatting-tables" $ Test04d.test        
+        qtest "04d-formatting-tables" $ Test04d.test
 
     it "04. formatting: footnotes (e)" $
         qtest "04e-formatting-footnotes" $ Test04e.test
 
     it "04. formatting: comments (f)" $
-        qtest "04f-formatting-comments" $ Test04f.test    
+        qtest "04f-formatting-comments" $ Test04f.test
 
     it "04. formatting: dates (g)" $
         qtest "04g-formatting-dates" $ Test04g.test

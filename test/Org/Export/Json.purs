@@ -22,7 +22,7 @@ import Yoga.JSON (E, read_, read, readJSON, write, writeJSON)
 import Node.Encoding (Encoding(..))
 import Node.FS.Sync (readTextFile)
 
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, pending')
 import Test.Spec.Assertions (fail, shouldEqual, shouldNotEqual)
 
 
@@ -85,7 +85,41 @@ spec = do
         qjsontest "03b-headings-with-content" $ Test03b.test
 
     it "03. works with headings with planning (c)" $
-        qjsontest "03c-headings-with-planning" $ Test03c.test        
+        qjsontest "03c-headings-with-planning" $ Test03c.test
+
+    it "03. works with headings with tags (d)" $
+        qjsontest "03d-headings-with-tags" $ Test03d.test
+
+    it "03. works with basic structure (e)" $
+        qjsontest "03e-basic-structuring" $ Test03e.test
+
+    it "04. formatting: headings (a)" $
+        qjsontest "04a-formatting-headings" $ Test04a.test
+
+    it "04. formatting: blocks (b)" $
+        qjsontest "04b-formatting-blocks" $ Test04b.test
+
+    pending' "04. formatting: lists (c)" $
+        qjsontest "04c-formatting-lists" $ Test04c.test
+
+    pending' "04. formatting: tables (d)" $
+        qjsontest "04d-formatting-tables" $ Test04d.test  
+
+    it "04. formatting: footnotes (e)" $
+        qjsontest "04e-formatting-footnotes" $ Test04e.test
+
+    it "04. formatting: comments (f)" $
+        qjsontest "04f-formatting-comments" $ Test04f.test
+
+    it "04. formatting: dates (g)" $
+        qjsontest "04g-formatting-dates" $ Test04g.test
+
+    pending' "04. formatting: properties & keywords (h)" $
+        qjsontest "04h-formatting-properties-and-keywords" $ Test04h.test
+
+    pending' "04. formatting: drawers (i)" $
+        qjsontest "04i-formatting-drawers" $ Test04i.test
+
 
 
 renderOptions :: D.Options
