@@ -57,7 +57,7 @@ spec = do
     it "03. works with heading with some content (b)" $
         qtest "03b-headings-with-content" $ Test03b.test
 
-    pending' "03. works with headings with planning (c)" $
+    it "03. works with headings with planning (c)" $
         qtest "03c-headings-with-planning" $ Test03c.test
 
     it "03. works with basic structure (d)" $

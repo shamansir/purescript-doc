@@ -25,7 +25,7 @@ test =
             $ Org.set Todo
             $ Org.sece1 3 $ Org.text "watch \"The Matrix\""
             , Org.schedule (Org.adate $ Org.d 2006 3 12)
-            $ Org.deadline (Org.adate $ Org.d 2034 3 22)
+            $ Org.deadline (Org.adate $ Org.d 2034 3 22) -- TODO: order by date-time
             $ Org.set Todo
             $ Org.sece1 3 $ Org.text "take over the world with Org mode"
             ]
