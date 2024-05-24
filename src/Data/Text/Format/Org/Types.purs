@@ -499,6 +499,81 @@ instance JsonOverVariant ImageSourceRow ImageSource where
     fromVariant = imageSourceFromVariant
 
 
+emptyItem :: Item
+emptyItem = 
+    Item
+        { check : Nothing
+        , counter : Nothing 
+        , tag : Nothing
+        , drawers : []
+        }
+        (importWords [])
+        Nothing
+
+
+type JsonListItemsRow =
+    ( type_ :: Variant ListTypeRow
+    , values :: Array JsonListItem 
+    )
+
+
+convertListItems :: ListItems -> Record JsonListItemsRow
+convertListItems (ListItems itemType children) =
+    { type_ : toVariant itemType 
+    , values : NEA.toArray $ convertListItem <$> children
+    }
+
+
+loadListItems :: Record JsonListItemsRow -> ListItems
+loadListItems rec =
+    ListItems
+        (fromVariant rec.type_)
+        $ toNEA emptyItem $ loadListItem <$> rec.values
+
+
+instance ReadForeign ListItems where readImpl = readImplRow
+instance WriteForeign ListItems where writeImpl = writeImplRow
+instance JsonOverRow JsonListItemsRow ListItems where
+    convert = convertListItems
+    load = loadListItems
+
+
+type JsonListItemRow =
+    ( words :: Array Words
+    , tag :: Maybe String
+    , check :: Maybe (Variant CheckRow)
+    , counter :: Maybe Int
+    , children :: Maybe (Record JsonListItemsRow)
+    )
+
+
+newtype JsonListItem =
+    JsonListItem (Record JsonListItemRow)
+
+
+convertListItem :: Item -> JsonListItem
+convertListItem  (Item def ws mbChildren) =
+    JsonListItem
+        { words : exportWords ws
+        , tag : def.tag
+        , check : toVariant <$> def.check
+        , counter : (\(Counter n) -> n) <$> def.counter
+        , children : convertListItems <$> mbChildren
+        }
+
+
+loadListItem :: JsonListItem -> Item
+loadListItem (JsonListItem item) = 
+    Item 
+        { check : fromVariant <$> item.check
+        , counter : Counter <$> item.counter 
+        , tag : item.tag
+        , drawers : []
+        }
+        (importWords $ item.words)
+        $ loadListItems <$> item.children
+
+
 type BlockKindRow =
     ( quote :: Case
     , example :: Case
@@ -571,15 +646,28 @@ type BlockRow =
     , hr :: Case
     , fixed :: Case1 (Array Words)
     , comment :: Case1 (Array String)
+    , list :: Case2 (Variant ListTypeRow) (Array JsonListItem)
     )
+
+
+instance ReadForeign JsonListItem where readImpl f = (readImpl f :: F (Record JsonListItemRow)) <#> JsonListItem
+instance WriteForeign JsonListItem where writeImpl (JsonListItem items) = writeImpl items
 
 
 toNEA :: forall a. a -> Array a -> NonEmptyArray a
 toNEA a = NEA.fromArray >>> fromMaybe (NEA.singleton a)
 
 
+importWords :: Array Words -> NonEmptyArray Words
 importWords = toNEA $ Plain "??"
+exportWords :: NonEmptyArray Words -> Array Words
 exportWords = NEA.toArray
+
+
+importItems :: Array JsonListItem -> NonEmptyArray Item
+importItems = map loadListItem >>> toNEA emptyItem
+exportItems :: NonEmptyArray Item -> Array JsonListItem
+exportItems = NEA.toArray >>> map convertListItem
 
 
 readBlock :: Foreign -> F Block
@@ -596,6 +684,7 @@ readBlock =
         , hr : Variant.use HRule
         , fixed : Variant.use1 $ FixedWidth <<< importWords
         , comment : Variant.use1 LComment
+        , list : Variant.use2 $ \ltype items -> List $ ListItems (fromVariant ltype) $ importItems items
         }
 
 
@@ -610,7 +699,7 @@ blockToVariant = case _ of
     LComment lines -> Variant.select1 (Proxy :: _ "comment") lines
     -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
     WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
-    List _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
+    List (ListItems listType items) -> Variant.select2 (Proxy :: _ "list") (toVariant listType) $ exportItems items
     Table _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
     JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
 
@@ -628,6 +717,7 @@ blockFromVariant =
         , drawer : Variant.uncase2 >>> map importWords >>> Tuple.uncurry \name content -> IsDrawer $ Drawer { name, content }
         , footnote : Variant.uncase2 >>> map importWords >>> Tuple.uncurry Footnote
         , comment : Variant.uncase1 >>> LComment
+        , list : Variant.uncase2 >>> Tuple.uncurry \ltype items -> List $ ListItems (fromVariant ltype) $ importItems items
         }
 
 
@@ -1265,6 +1355,8 @@ loadTime rec =
         (toEnum rec.millisecond # fromMaybe bottom)
 
 
+-- instance ReadForeign Time where readImpl = readImplRow
+-- instance WriteForeign Time where writeImpl = writeImplRow
 instance JsonOverRow JsonTimeRow Time where
     convert = convertTime
     load = loadTime

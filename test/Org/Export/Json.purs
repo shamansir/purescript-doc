@@ -22,7 +22,7 @@ import Yoga.JSON (E, read_, read, readJSON, write, writeJSON)
 import Node.Encoding (Encoding(..))
 import Node.FS.Sync (readTextFile)
 
-import Test.Spec (Spec, describe, it, pending')
+import Test.Spec (Spec, describe, it, pending', itOnly)
 import Test.Spec.Assertions (fail, shouldEqual, shouldNotEqual)
 
 
@@ -99,7 +99,7 @@ spec = do
     it "04. formatting: blocks (b)" $
         qjsontest "04b-formatting-blocks" $ Test04b.test
 
-    pending' "04. formatting: lists (c)" $
+    it "04. formatting: lists (c)" $
         qjsontest "04c-formatting-lists" $ Test04c.test
 
     pending' "04. formatting: tables (d)" $
