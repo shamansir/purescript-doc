@@ -661,7 +661,7 @@ toNEA a = NEA.fromArray >>> fromMaybe (NEA.singleton a)
 importWords :: Array Words -> NonEmptyArray Words
 importWords = toNEA $ Plain "??" -- FIXME: use some default `Words`
 exportWords :: NonEmptyArray Words -> Array Words
-exportWords = NEA.toArray
+exportWords = NEA.toArray >>> flattenWords
 
 
 importItems :: Array JsonListItem -> NonEmptyArray Item
@@ -716,20 +716,16 @@ blockToVariant = case _ of
     HRule -> Variant.select (Proxy :: _ "hr")
     FixedWidth words -> Variant.select1 (Proxy :: _ "fixed") $ exportWords words
     LComment lines -> Variant.select1 (Proxy :: _ "comment") lines
-    -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
-    WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
+    WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- Keywords are handled on top level
     List (ListItems listType items) -> Variant.select2 (Proxy :: _ "list") (toVariant listType) $ exportItems items
     Table mbFormat rows -> Variant.select1 (Proxy :: _ "table") { format : mbFormat, rows : exportRows rows }
-    JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
+    JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- Joins are handled on top level
 
 
 blockFromVariant :: Variant BlockRow -> Block
 blockFromVariant =
     Variant.match
         { kind : Variant.uncase2 >>> Tuple.uncurry \kind content -> Of kind $ importWords content
-        -- , list : ?wh -- Variant.todo $ Quote ""
-        -- , table : ?wh -- Variant.todo $ Quote ""
-        -- , keyword : Variant.uncase2 >>> Tuple.uncurry WithKeyword
         , hr : Variant.uncase HRule
         , fixed : Variant.uncase1 >>> importWords >>> FixedWidth
         , paragraph : Variant.uncase1 >>> importWords >>> Paragraph
@@ -1688,7 +1684,7 @@ convertDoc parentId (OrgDoc doc) =
                     { keywords : prev, block : toVariant block }
     in
     (
-        { blocks : collectKeywords <$> doc.zeroth
+        { blocks : collectKeywords <$> flattenBlocks doc.zeroth
         , sections : sectionsIds
         }
     /\
@@ -1760,3 +1756,27 @@ instance JsonOverRow FileRow OrgFile where
 
 instance ReadForeign OrgFile where readImpl = readImplRow
 instance WriteForeign OrgFile where writeImpl = writeImplRow
+
+
+flattenWords :: Array Words -> Array Words
+flattenWords = 
+    flattenJoins $ case _ of 
+        JoinW wa wb -> Just $ wa /\ wb
+        _ -> Nothing
+
+
+flattenBlocks :: Array Block -> Array Block
+flattenBlocks =
+    flattenJoins $ case _ of 
+        JoinB ba bb -> Just $ ba /\ bb
+        _ -> Nothing
+
+
+flattenJoins :: forall a. (a -> Maybe (a /\ a)) -> Array a -> Array a
+flattenJoins isJoin = 
+    Array.concatMap flattenJoin
+    where 
+        flattenJoin item = 
+            case isJoin item of 
+                Just (joinA /\ joinB) -> [ joinA, joinB ]
+                Nothing -> [ item ]
