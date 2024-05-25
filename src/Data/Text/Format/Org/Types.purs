@@ -544,6 +544,7 @@ type JsonListItemRow =
     , check :: Maybe (Variant CheckRow)
     , counter :: Maybe Int
     , children :: Maybe (Record JsonListItemsRow)
+    , drawers :: Array Drawer
     )
 
 
@@ -559,6 +560,7 @@ convertListItem  (Item def ws mbChildren) =
         , check : toVariant <$> def.check
         , counter : (\(Counter n) -> n) <$> def.counter
         , children : convertListItems <$> mbChildren
+        , drawers : def.drawers
         }
 
 
@@ -568,7 +570,7 @@ loadListItem (JsonListItem item) =
         { check : fromVariant <$> item.check
         , counter : Counter <$> item.counter 
         , tag : item.tag
-        , drawers : []
+        , drawers : item.drawers
         }
         (importWords $ item.words)
         $ loadListItems <$> item.children
@@ -1525,7 +1527,7 @@ type SectionRow =
     , planning :: Record PlanningRow
     , props :: JsonKeywords String
     , comment :: Boolean
-    -- , drawers :: Array Drawer -- FIXME: TODO
+    , drawers :: Array Drawer
     , doc :: Record DocRow
     , tags :: Array String
     )
@@ -1602,6 +1604,7 @@ convertSection sectionId (Section section) =
         , level : section.level
         , planning : convert section.planning
         , props : fromKeywords section.props
+        , drawers : section.drawers
         , tags : section.tags
         , comment : section.comment
         , doc : convertedDoc
@@ -1620,7 +1623,7 @@ loadSection allSections section =
         , level : section.level
         , tags : section.tags
         , planning : load section.planning
-        , drawers : [] -- FIXME: TODO
+        , drawers : section.drawers
         , props : toKeywords section.props
         , comment : section.comment
         , doc : loadDoc allSections section.doc
