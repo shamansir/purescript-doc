@@ -133,6 +133,14 @@ insert' n k v = unwrap >>> Map.insert (n /\ k) (Just v) >>> wrap
 -}
 
 
+toRec :: forall v. Keyword v -> KeywordRec v
+toRec = unwrap
+
+
+fromRec :: forall v. KeywordRec v -> Keyword v
+fromRec = wrap
+
+
 toKeywords :: forall v. JsonKeywords v -> Keywords v
 toKeywords = wrap <<< map wrap
 

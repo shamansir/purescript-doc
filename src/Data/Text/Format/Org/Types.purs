@@ -37,7 +37,7 @@ import Yoga.Json.Extra
     ) as Variant
 
 import Data.Text.Format.Org.Keywords (Keywords, JsonKeywords, fromKeywords, toKeywords)
-import Data.Text.Format.Org.Keywords (Keyword, empty) as Keywords
+import Data.Text.Format.Org.Keywords (Keyword, empty, toRec, fromRec) as Keywords
 
 -- inspired by https://hackage.haskell.org/package/org-mode-2.1.0/docs/Data-Org.html
 
@@ -1504,7 +1504,11 @@ instance JsonOverRow PlanningRow Planning where
 
 
 type DocRow =
-    ( blocks :: Array (Variant BlockRow)
+    ( blocks :: 
+        Array 
+            { keywords :: JsonKeywords String
+            , block :: Variant BlockRow 
+            }
     , sections :: Array JsonSectionId
     )
 
@@ -1530,19 +1534,23 @@ type SectionRow =
 type FileRow =
     ( meta :: JsonKeywords String
     , doc :: Record DocRow
-    , sections :: Array (JsonSectionId /\ Record SectionRow)
+    , sections :: 
+        Array 
+            { id :: JsonSectionId
+            , section :: Record SectionRow 
+            }
     )
 
 
 type SectionsMap = Map JsonSectionId (Record SectionRow)
 
 
-sectionsToArray :: SectionsMap -> Array (JsonSectionId /\ Record SectionRow)
-sectionsToArray = Map.toUnfoldable
+sectionsToArray :: SectionsMap -> Array { id :: JsonSectionId, section :: Record SectionRow }
+sectionsToArray = Map.toUnfoldable >>> map \(id /\ section) -> { id, section }
 
 
-sectionsFromArray :: Array (JsonSectionId /\ Record SectionRow) -> SectionsMap
-sectionsFromArray = Map.fromFoldable
+sectionsFromArray :: Array { id :: JsonSectionId, section :: Record SectionRow } -> SectionsMap
+sectionsFromArray = map (\{ id, section } -> id /\ section) >>> Map.fromFoldable
 
 
 emptyPlanning :: Planning
@@ -1648,10 +1656,18 @@ collectSections (SectionId parentId) sections =
 
 convertDoc :: JsonSectionId -> OrgDoc -> Record DocRow /\ SectionsMap
 convertDoc parentId (OrgDoc doc) =
-    let (sectionsIds /\ sectionsMap) = collectSections parentId doc.sections
+    let 
+        (sectionsIds /\ sectionsMap) = collectSections parentId doc.sections
+        collectKeywords = collectKeywords' []
+        collectKeywords' prev = 
+            case _ of 
+                WithKeyword keyword block ->
+                    collectKeywords' (Array.snoc prev $ Keywords.toRec keyword) block
+                block ->
+                    { keywords : prev, block : toVariant block }
     in
     (
-        { blocks : toVariant <$> doc.zeroth
+        { blocks : collectKeywords <$> doc.zeroth
         , sections : sectionsIds
         }
     /\
@@ -1666,10 +1682,16 @@ convertDoc parentId (OrgDoc doc) =
 loadDoc :: SectionsMap -> Record DocRow -> OrgDoc
 loadDoc allSections doc =
     OrgDoc
-        { zeroth : fromVariant <$> doc.blocks
+        { zeroth : blockWithKeywords <$> doc.blocks
         , sections : loadOrEmpty <$> doc.sections
         }
     where
+        blockWithKeywords { keywords, block } =
+            case Array.uncons keywords of
+                Just { head, tail } -> 
+                    WithKeyword (Keywords.fromRec head) $ blockWithKeywords { keywords : tail, block }
+                Nothing -> 
+                    fromVariant block
         loadOrEmpty sectionId =
             Map.lookup sectionId allSections
                 <#> loadSection allSections

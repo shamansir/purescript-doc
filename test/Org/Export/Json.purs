@@ -114,7 +114,7 @@ spec = do
     it "04. formatting: dates (g)" $
         qjsontest "04g-formatting-dates" $ Test04g.test
 
-    pending' "04. formatting: properties & keywords (h)" $
+    it "04. formatting: properties & keywords (h)" $
         qjsontest "04h-formatting-properties-and-keywords" $ Test04h.test
 
     pending' "04. formatting: drawers (i)" $
