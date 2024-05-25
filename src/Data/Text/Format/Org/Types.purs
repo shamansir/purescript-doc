@@ -639,16 +639,14 @@ instance JsonOverVariant BlockKindRow BlockKind where
 
 type BlockRow =
     ( kind :: Case2 BlockKind (Array Words)
-    -- , list :: ListItems
-    -- , table :: Array TableRow
     , drawer :: Case2 String (Array Words)
     , paragraph :: Case1 (Array Words)
-    -- , keyword :: Case2 { name :: String, value :: String } Int -- FIXME:
     , footnote :: Case2 String (Array Words)
     , hr :: Case
     , fixed :: Case1 (Array Words)
     , comment :: Case1 (Array String)
     , list :: Case2 (Variant ListTypeRow) (Array JsonListItem)
+    , table :: Case1 { format :: Maybe String, rows :: JsonRows }
     )
 
 
@@ -661,7 +659,7 @@ toNEA a = NEA.fromArray >>> fromMaybe (NEA.singleton a)
 
 
 importWords :: Array Words -> NonEmptyArray Words
-importWords = toNEA $ Plain "??"
+importWords = toNEA $ Plain "??" -- FIXME: use some default `Words`
 exportWords :: NonEmptyArray Words -> Array Words
 exportWords = NEA.toArray
 
@@ -672,21 +670,40 @@ exportItems :: NonEmptyArray Item -> Array JsonListItem
 exportItems = NEA.toArray >>> map convertListItem
 
 
+type JsonRows = Array (Array (Array Words))
+
+
+importRows :: JsonRows -> NonEmptyArray TableRow
+importRows = 
+    map importRow >>> toNEA BreakT
+    where
+        importColumn [] = Empty
+        importColumn ws = Column $ importWords ws
+        importRow [] = BreakT
+        importRow columns = Row $ toNEA Empty $ importColumn <$> columns
+exportRows :: NonEmptyArray TableRow -> JsonRows
+exportRows = 
+    NEA.toArray >>> map exportRow
+    where
+        exportColumn Empty = []
+        exportColumn (Column ws) = exportWords ws
+        exportRow BreakT = []
+        exportRow (Row columns) = exportColumn <$> NEA.toArray columns
+
+
 readBlock :: Foreign -> F Block
 readBlock =
     readMatchImpl
         (Proxy :: _ BlockRow)
         { kind : Variant.use2 $ \kind ws -> Of kind $ importWords ws
-        -- , list : ?wh -- Variant.todo $ Quote ""
-        -- , table : ?wh -- Variant.todo $ Quote ""
-        -- , keyword : Variant.use2 WithKeyword -- FIXME
-        , drawer : Variant.use2 $ \name ws -> IsDrawer $ Drawer { name, content : importWords ws } -- FIXME
+        , drawer : Variant.use2 $ \name ws -> IsDrawer $ Drawer { name, content : importWords ws }
         , footnote : Variant.use2 $ \label ws -> Footnote label $ importWords ws
         , paragraph : Variant.use1 $ Paragraph <<< importWords
         , hr : Variant.use HRule
         , fixed : Variant.use1 $ FixedWidth <<< importWords
         , comment : Variant.use1 LComment
         , list : Variant.use2 $ \ltype items -> List $ ListItems (fromVariant ltype) $ importItems items
+        , table : Variant.use1 $ \{ format, rows } -> Table format $ importRows rows
         }
 
 
@@ -702,7 +719,7 @@ blockToVariant = case _ of
     -- WithKeyword kw block -> Variant.select2 (Proxy :: _ "keyword") kw block
     WithKeyword _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
     List (ListItems listType items) -> Variant.select2 (Proxy :: _ "list") (toVariant listType) $ exportItems items
-    Table _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
+    Table mbFormat rows -> Variant.select1 (Proxy :: _ "table") { format : mbFormat, rows : exportRows rows }
     JoinB _ _ -> Variant.select2 (Proxy :: _ "kind") Quote [ Plain "QQQ" ] -- FIXME
 
 
@@ -720,6 +737,7 @@ blockFromVariant =
         , footnote : Variant.uncase2 >>> map importWords >>> Tuple.uncurry Footnote
         , comment : Variant.uncase1 >>> LComment
         , list : Variant.uncase2 >>> Tuple.uncurry \ltype items -> List $ ListItems (fromVariant ltype) $ importItems items
+        , table : Variant.uncase1 >>> \{ format, rows } -> Table format $ importRows rows
         }
 
 

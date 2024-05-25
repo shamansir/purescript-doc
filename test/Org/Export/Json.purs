@@ -102,7 +102,7 @@ spec = do
     it "04. formatting: lists (c)" $
         qjsontest "04c-formatting-lists" $ Test04c.test
 
-    pending' "04. formatting: tables (d)" $
+    it "04. formatting: tables (d)" $
         qjsontest "04d-formatting-tables" $ Test04d.test  
 
     it "04. formatting: footnotes (e)" $
