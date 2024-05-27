@@ -37,20 +37,24 @@ data DrawerMode
 
 
 layout :: OrgFile -> Doc
-layout (OrgFile { meta, doc }) =
+layout = layoutWith defaultRO
+
+
+layoutWith :: RO -> OrgFile -> Doc
+layoutWith ro (OrgFile { meta, doc }) =
     case (Keywords.isEmpty meta /\ Org.isDocEmpty doc) of
         (true /\ true) -> D.nil
         (false /\ true) -> renderMetaBlock
-        (true /\ false) -> layoutDoc root doc
+        (true /\ false) -> layoutDoc ro root doc
         (false /\ false) ->
             renderMetaBlock
-            <//> layoutDoc root doc
+            <//> layoutDoc ro root doc
     where
         renderMetaBlock = meta # Keywords.fromKeywords # map (layoutKeyword AsKeyword) # D.stack
 
 
-layoutDoc :: Deep -> OrgDoc -> Doc
-layoutDoc deep (OrgDoc { zeroth, sections }) =
+layoutDoc :: RO -> Deep -> OrgDoc -> Doc
+layoutDoc ro deep (OrgDoc { zeroth, sections }) =
     if (not $ Array.length zeroth == 0) then
         renderZerothBlock
         </>
@@ -58,12 +62,12 @@ layoutDoc deep (OrgDoc { zeroth, sections }) =
     else
         renderSectionsBlock
     where
-        renderZerothBlock = zeroth # map (layoutBlock deep) # D.joinWith D.break
-        renderSectionsBlock = sections # map layoutSection # D.join
+        renderZerothBlock = zeroth # map (layoutBlock ro deep) # D.joinWith D.break
+        renderSectionsBlock = sections # map (layoutSection ro) # D.join
 
 
-layoutBlock :: Deep -> Org.Block -> Doc
-layoutBlock deep = case _ of
+layoutBlock :: RO -> Deep -> Org.Block -> Doc
+layoutBlock ro deep = case _ of
     Org.Of conf words ->
         case blockNameAndArgs conf of
             nameDoc /\ mbArgsDoc ->
@@ -75,8 +79,8 @@ layoutBlock deep = case _ of
                     , D.text "#+end_" <> nameDoc
                     ]
     Org.List items ->
-        layoutItems (deepToIndent deep) items
-    Org.Table format rows -> 
+        layoutItems ro (Items deep) deep items
+    Org.Table format rows ->
         layoutTable $ NEA.toArray rows
     Org.Paragraph words ->
         words
@@ -100,14 +104,14 @@ layoutBlock deep = case _ of
             # splitByBreak
             # map (map \ws -> D.text "# " <> layoutWords ws)
             # map D.join
-            # D.nest' 0            
+            # D.nest' 0
     Org.WithKeyword (Keywords.Keyword kwd) block ->
         D.nest indent (layoutKeyword AsKeyword kwd)
-        </> layoutBlock deep block
+        </> layoutBlock ro deep block
     Org.JoinB blockA blockB ->
-        layoutBlock deep blockA </> layoutBlock deep blockB
-    Org.IsDrawer drawer -> 
-        layoutDrawer indent drawer
+        layoutBlock ro deep blockA </> layoutBlock ro deep blockB
+    Org.IsDrawer drawer ->
+        layoutDrawer ro deep drawer
     Org.Footnote label def ->
         D.bracket "[" (D.text "fn:" <> D.text label) "]"
             <+> D.stack (layoutWords <$> NEA.toArray def) -- FIXME: impoperly renders line breaks, see 04e
@@ -154,11 +158,11 @@ layoutBlock deep = case _ of
                 }
             >>> \{ prev, last } -> Array.snoc prev last
 
-        indent = deepToIndent deep
+        indent = ro.calcIndent $ Block deep
 
 
-layoutSection :: Org.Section -> Doc
-layoutSection (Org.Section section) =
+layoutSection :: RO -> Org.Section -> Doc
+layoutSection ro (Org.Section section) =
     let
         headingText =
             section.heading # NEA.toArray # map layoutWords # D.join
@@ -210,12 +214,12 @@ layoutSection (Org.Section section) =
                 # Keywords.fromKeywords'
                 # map (layoutKeyword AsProperty)
                 # D.joinWith D.break
-                # layoutDrawer' 0 DrawerUpper "properties"
-        hasOtherDrawers = 
+                # layoutDrawer' ro root DrawerUpper "properties"
+        hasOtherDrawers =
             Array.length section.drawers > 0
-        otherDrawers = 
-            section.drawers 
-                # map (layoutDrawer 0)
+        otherDrawers =
+            section.drawers
+                # map (layoutDrawer ro root)
                 # D.joinWith D.break
         planningLine =
             [ planningItem "TIMESTAMP" <$> planning.timestamp
@@ -230,7 +234,7 @@ layoutSection (Org.Section section) =
                 <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
                 <> (if hasProperties then propertiesDrawer <> D.break else D.nil)
                 <> (if hasOtherDrawers then otherDrawers <> D.break else D.nil)
-                <> layoutDoc (deepAs section.level) section.doc
+                <> layoutDoc ro (deepAs section.level) section.doc
         else
             headlingLineCombined
             <> (if hasProperties then D.break <> propertiesDrawer <> D.break else D.nil)
@@ -374,8 +378,8 @@ layoutRange = case _ of
             Nothing -> D.nil
 
 
-layoutItems :: Int -> Org.ListItems -> Doc
-layoutItems indent (Org.ListItems lt items) =
+layoutItems :: RO -> IndentSubject -> Deep -> Org.ListItems -> Doc
+layoutItems ro subj deep (Org.ListItems lt items) =
     let
         markerPrefix idx = case lt of
             Org.Bulleted -> "*"
@@ -405,24 +409,26 @@ layoutItems indent (Org.ListItems lt items) =
             ]
             # D.spacify
         itemLine idx (Org.Item opts ws (Just subs)) =
-            itemLine idx (Org.Item opts ws Nothing)
-            </> layoutItems (howDeep idx) subs
-        itemMaybeWithDrawers idx item@(Org.Item opts _ _) = 
+            let
+                item = (Org.Item opts ws Nothing)
+                indentSubj = ListItem subj lt idx
+                nextDeep = deepAs $ ro.calcIndent indentSubj
+            in
+                itemLine idx item
+                </> layoutItems ro indentSubj nextDeep subs
+        itemMaybeWithDrawers idx item@(Org.Item opts _ _) =
             itemLine idx item
-            <> if hasDrawers opts then drawers opts else D.nil 
-        hasDrawers opts = 
+            <> if hasDrawers opts then drawers opts else D.nil
+        hasDrawers opts =
             Array.length opts.drawers > 0
-        drawers opts = 
-            opts.drawers 
-                # map (layoutDrawer indent)
-                # D.joinWith D.break            
-        howDeep idx = indent + case lt of
-            Org.Bulleted -> 2
-            Org.Plussed -> 2
-            Org.Hyphened -> 2
-            Org.Numbered -> if (idx + 1) < 10 then 3 else 4
-            Org.NumberedFrom n -> if (idx + n) < 10 then 3 else 4
-            Org.Alphed -> 3
+        drawers opts =
+            opts.drawers
+                # map (layoutDrawer ro deep) -- FIXME : we use `deep` only to indent drawers
+                # D.joinWith D.break
+        indent = ro.calcIndent subj
+            -- case parentSubj of
+            --     Just subj -> ro.calcIndent subj
+            --     Nothing -> ro.calcIndent $ Items deep
     in
         D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemMaybeWithDrawers items
 
@@ -442,22 +448,23 @@ layoutKeyword AsKeyword kwd =
             Nothing /\ Nothing -> D.bracket "#+" (D.text kwd.name) ":"
 
 
-layoutDrawer :: Int -> Org.Drawer -> Doc
-layoutDrawer indent (Org.Drawer { name, content }) =
+layoutDrawer :: RO -> Deep -> Org.Drawer -> Doc
+layoutDrawer ro deep (Org.Drawer { name, content }) =
     content
         # NEA.toArray
         # map layoutWords
         # D.join
-        # layoutDrawer' indent DrawerLower name
-        # D.nest indent
+        # layoutDrawer' ro deep DrawerLower name
+        # D.nest (ro.calcIndent $ Drawer deep)
 
 
-layoutDrawer' :: Int -> DrawerMode -> String -> Doc -> Doc
-layoutDrawer' indent mode name content =
+layoutDrawer' :: RO -> Deep -> DrawerMode -> String -> Doc -> Doc
+layoutDrawer' ro deep mode name content =
     D.wrap ":" (D.text $ applyMode name)
     </> D.nest indent content
     </> D.nest indent (D.wrap ":" (D.text $ applyMode "end"))
     where
+        indent = ro.calcIndent $ Drawer deep
         applyMode =
             case mode of
                 DrawerUpper -> String.toUpper
@@ -467,22 +474,61 @@ layoutDrawer' indent mode name content =
 layoutTable :: Array Org.TableRow -> Doc
 layoutTable rows =
     D.joinWith D.break $ layoutRow <$> rows
-    where 
+    where
         columnsCount = Array.foldl max 0 $ columnsAt <$> rows
         columnsAt Org.BreakT = 0
         columnsAt (Org.Row columns) = NEA.length columns
-        layoutRow Org.BreakT = 
+        layoutRow Org.BreakT =
             D.wrap "|" $ D.joinWith (D.text "+") $ Array.replicate columnsCount $ D.text "-"
-        layoutRow (Org.Row columns) = 
+        layoutRow (Org.Row columns) =
             D.wrap "|" $ D.joinWith (D.text "|") $ layoutColumn <$> NEA.toArray columns
-        layoutColumn Org.Empty = 
+        layoutColumn Org.Empty =
             D.text " "
-        layoutColumn (Org.Column words) = 
+        layoutColumn (Org.Column words) =
             D.join $ layoutWords <$> NEA.toArray words
 
 
 showdd n =
     if n < 10 then "0" <> show n else show n
+
+
+defaultRO :: RO
+defaultRO =
+    { calcIndent : indentFn
+    }
+    where
+        indentFn (Block deep) = deepToIndent deep
+        indentFn (Items deep) = deepToIndent deep
+        indentFn (Drawer deep) = deepToIndent deep
+        indentFn (ListItem parent lt idx) =
+            indentFn parent + case lt of
+                Org.Bulleted -> 2
+                Org.Plussed -> 2
+                Org.Hyphened -> 2
+                Org.Numbered -> if (idx + 1) < 10 then 3 else 4
+                Org.NumberedFrom n -> if (idx + n) < 10 then 3 else 4
+                Org.Alphed -> 3
+
+
+data IndentSubject
+    -- = SectionHeading Deep
+    -- | SectionContent Deep
+    -- | SectionProperties Deep
+    = Block Deep
+    | Items Deep
+    | Drawer Deep
+    | ListItem IndentSubject Org.ListType Int
+
+
+type IndentFn = IndentSubject -> Int
+
+
+type RenderOptions =
+    { calcIndent :: IndentFn
+    }
+
+
+type RO = RenderOptions
 
 
 root :: Deep
