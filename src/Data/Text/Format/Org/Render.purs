@@ -5,19 +5,18 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty as NEA
 import Data.Char (fromCharCode)
-import Data.Date as DT
+import Data.Date (Date, day, month, weekday, year)  as DT
 import Data.Enum (fromEnum)
-import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.Newtype (unwrap)
 import Data.String (toUpper, toLower, take) as String
 import Data.String.CodeUnits (singleton) as String
 import Data.Text.Doc (Doc, (<+>), (</>), (<//>))
 import Data.Text.Doc as D
-import Data.Time as DT
-import Data.Tuple.Nested ((/\), type (/\))
+import Data.Time (Time, hour, minute) as DT
+import Data.Tuple.Nested ((/\))
 
-import Data.Text.Format.Org.Construct as Org
+import Data.Text.Format.Org.Construct (isDocEmpty) as Org
 import Data.Text.Format.Org.Types (OrgFile(..), OrgDoc(..))
 import Data.Text.Format.Org.Types as Org
 import Data.Text.Format.Org.Keywords as Keywords
@@ -37,7 +36,7 @@ data DrawerMode
 
 
 layout :: OrgFile -> Doc
-layout = layoutWith defaultRO
+layout = layoutWith smartLists
 
 
 layoutWith :: RO -> OrgFile -> Doc
@@ -379,7 +378,7 @@ layoutRange = case _ of
 
 
 layoutItems :: RO -> IndentSubject -> Deep -> Org.ListItems -> Doc
-layoutItems ro subj deep (Org.ListItems lt items) =
+layoutItems ro parentSubj deep (Org.ListItems lt items) =
     let
         markerPrefix idx = case lt of
             Org.Bulleted -> "*"
@@ -400,6 +399,8 @@ layoutItems ro subj deep (Org.ListItems lt items) =
             D.text $ tag <> " ::"
         itemText ws =
             ws # NEA.toArray # map layoutWords # D.join
+        indentSubjFor = ListItem parentSubj lt
+        indentFor = ro.calcIndent <<< indentSubjFor
         itemLine idx (Org.Item opts ws Nothing) =
             [ Just $ markerPrefix idx
             , opts.check <#> checkPrefix
@@ -408,16 +409,18 @@ layoutItems ro subj deep (Org.ListItems lt items) =
             , Just $ itemText ws
             ]
             # D.spacify
+            # D.indentBy (indentFor idx)
         itemLine idx (Org.Item opts ws (Just subs)) =
             let
                 item = (Org.Item opts ws Nothing)
-                indentSubj = ListItem subj lt idx
-                nextDeep = deepAs $ ro.calcIndent indentSubj
+                indentSubj = indentSubjFor idx
+                curIndent = indentFor idx
+                nextDeep = deepAs curIndent
             in
-                itemLine idx item
+                D.indentBy curIndent (itemLine idx item)
                 </> layoutItems ro indentSubj nextDeep subs
         itemMaybeWithDrawers idx item@(Org.Item opts _ _) =
-            itemLine idx item
+            D.indentBy (indentFor idx) (itemLine idx item)
             <> if hasDrawers opts then drawers opts else D.nil
         hasDrawers opts =
             Array.length opts.drawers > 0
@@ -425,12 +428,13 @@ layoutItems ro subj deep (Org.ListItems lt items) =
             opts.drawers
                 # map (layoutDrawer ro deep) -- FIXME : we use `deep` only to indent drawers
                 # D.joinWith D.break
-        indent = ro.calcIndent subj
+        -- indent = ro.calcIndent subj
             -- case parentSubj of
             --     Just subj -> ro.calcIndent subj
             --     Nothing -> ro.calcIndent $ Items deep
     in
-        D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemMaybeWithDrawers items
+        D.stack $ NEA.toArray $ NEA.mapWithIndex itemMaybeWithDrawers items
+        -- D.nest' indent $ NEA.toArray $ NEA.mapWithIndex itemMaybeWithDrawers items
 
 
 layoutKeyword :: KwMode -> Keywords.KeywordRec String -> Doc
@@ -488,6 +492,7 @@ layoutTable rows =
             D.join $ layoutWords <$> NEA.toArray words
 
 
+showdd ∷ Int → String
 showdd n =
     if n < 10 then "0" <> show n else show n
 
@@ -501,22 +506,51 @@ defaultRO =
         indentFn (Items deep) = deepToIndent deep
         indentFn (Drawer deep) = deepToIndent deep
         indentFn (ListItem parent lt idx) =
-            indentFn parent + case lt of
-                Org.Bulleted -> 2
-                Org.Plussed -> 2
-                Org.Hyphened -> 2
-                Org.Numbered -> if (idx + 1) < 10 then 3 else 4
-                Org.NumberedFrom n -> if (idx + n) < 10 then 3 else 4
-                Org.Alphed -> 3
+            indentFn parent + _indentByLt idx lt
+
+
+_indentByLt :: Int -> Org.ListType -> Int
+_indentByLt idx =
+    case _ of
+        Org.Bulleted -> 2
+        Org.Plussed -> 2
+        Org.Hyphened -> 2
+        Org.Numbered -> if (idx + 1) < 10 then 3 else 4
+        Org.NumberedFrom n -> if (idx + n) < 10 then 3 else 4
+        Org.Alphed -> 3
+
+
+alwaysZeroRO :: RO
+alwaysZeroRO =
+    { calcIndent : const 0
+    }
+
+
+smartLists :: RO
+smartLists =
+    { calcIndent : indentFn
+    }
+    where
+        indentFn (Block _) = 0
+        indentFn (Items _) = 0
+        indentFn (Drawer _) = 0
+        indentFn (ListItem parent lt idx) =
+            case lt of
+                Org.Bulleted ->
+                    indentFn parent + 2
+                _ ->
+                    case parent of
+                        (ListItem _ parentLt _) ->
+                            if (parentLt == lt || parentLt == Org.Bulleted) then
+                                indentFn parent + _indentByLt idx lt
+                            else 0
+                        _ -> 0
 
 
 data IndentSubject
-    -- = SectionHeading Deep
-    -- | SectionContent Deep
-    -- | SectionProperties Deep
     = Block Deep
     | Items Deep
-    | Drawer Deep
+    | Drawer Deep -- TODO: consider including parent
     | ListItem IndentSubject Org.ListType Int
 
 

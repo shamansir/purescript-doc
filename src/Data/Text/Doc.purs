@@ -149,6 +149,16 @@ brbr x y = x <> break <> break <> y
 -- spbr x y = x <> (break) <> y
 
 
+indentOf :: Int -> Doc
+indentOf 0 = nil
+indentOf n = indent <> indentOf (n - 1)
+
+
+indentBy :: Int -> Doc -> Doc
+indentBy 0 doc = doc
+indentBy n doc = indent <> indentBy (n - 1) doc
+
+
 infixr 6 sp as <+>
 infixr 6 br as </>
 infixr 6 brbr as <//>

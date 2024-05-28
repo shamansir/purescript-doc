@@ -26,14 +26,14 @@ import Org.Test.Test04i as Test04i
 
 
 type Sample =
-    { slug :: String 
+    { slug :: String
     , friendly :: String
     , file :: OrgFile
     }
 
 
 samples :: Array Sample
-samples = 
+samples =
     [ { file : Test01.test, slug : "01-empty", friendly : "01. works with the syntax sample" }
     , { file : Test02a.test, slug : "02a-meta", friendly : "02. works with the meta sample (a)" }
     , { file : Test02b.test, slug : "02b-meta-special", friendly : "02. works with the special meta sample (b)" }
@@ -51,4 +51,4 @@ samples =
     , { file : Test04g.test, slug : "04g-formatting-dates", friendly : "04. formatting: dates (g)" }
     , { file : Test04h.test, slug : "04h-formatting-properties-and-keywords", friendly : "04. formatting: properties & keywords (h)" }
     , { file : Test04i.test, slug : "04i-formatting-drawers", friendly : "04. formatting: drawers (i)" }
-    ]    
+    ]

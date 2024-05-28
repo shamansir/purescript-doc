@@ -33,7 +33,7 @@ import Yoga.Json.Extra (Case, Case1, Case2, readMatchImpl)
 import Yoga.Json.Extra
     ( use, use1, use2
     , select, select1, select2, todo
-    , uncase, uncase1, uncase2 
+    , uncase, uncase1, uncase2
     ) as Variant
 
 import Data.Text.Format.Org.Keywords (Keywords, JsonKeywords, fromKeywords, toKeywords)
@@ -110,7 +110,7 @@ data MarkupKey
     | Highlight
     | Underline
     | Verbatim
-    | InlineCode 
+    | InlineCode
     | Inline InlineKey
     | Strike
     | Error
@@ -255,6 +255,9 @@ data ListType
     | NumberedFrom Int
     | Hyphened
     | Alphed
+
+
+derive instance Eq ListType
 
 
 data TableRow = BreakT | Row (NonEmptyArray TableColumn)
@@ -500,10 +503,10 @@ instance JsonOverVariant ImageSourceRow ImageSource where
 
 
 emptyItem :: Item
-emptyItem = 
+emptyItem =
     Item
         { check : Nothing
-        , counter : Nothing 
+        , counter : Nothing
         , tag : Nothing
         , drawers : []
         }
@@ -513,13 +516,13 @@ emptyItem =
 
 type JsonListItemsRow =
     ( type_ :: Variant ListTypeRow
-    , values :: Array JsonListItem 
+    , values :: Array JsonListItem
     )
 
 
 convertListItems :: ListItems -> Record JsonListItemsRow
 convertListItems (ListItems itemType children) =
-    { type_ : toVariant itemType 
+    { type_ : toVariant itemType
     , values : NEA.toArray $ convertListItem <$> children
     }
 
@@ -565,10 +568,10 @@ convertListItem  (Item def ws mbChildren) =
 
 
 loadListItem :: JsonListItem -> Item
-loadListItem (JsonListItem item) = 
-    Item 
+loadListItem (JsonListItem item) =
+    Item
         { check : fromVariant <$> item.check
-        , counter : Counter <$> item.counter 
+        , counter : Counter <$> item.counter
         , tag : item.tag
         , drawers : item.drawers
         }
@@ -674,7 +677,7 @@ type JsonRows = Array (Array (Array Words))
 
 
 importRows :: JsonRows -> NonEmptyArray TableRow
-importRows = 
+importRows =
     map importRow >>> toNEA BreakT
     where
         importColumn [] = Empty
@@ -682,7 +685,7 @@ importRows =
         importRow [] = BreakT
         importRow columns = Row $ toNEA Empty $ importColumn <$> columns
 exportRows :: NonEmptyArray TableRow -> JsonRows
-exportRows = 
+exportRows =
     NEA.toArray >>> map exportRow
     where
         exportColumn Empty = []
@@ -767,7 +770,7 @@ inlineKeyToVariant = case _ of
 
 
 inlineKeyFromVariant :: Variant InlineKeyRow -> InlineKey
-inlineKeyFromVariant = 
+inlineKeyFromVariant =
     Variant.match
         { comment : Variant.uncase IComment
         , html : Variant.uncase IHtml
@@ -779,7 +782,7 @@ instance WriteForeign InlineKey where writeImpl = writeImplVar
 instance JsonOverVariant InlineKeyRow InlineKey where
     readForeign = readInlineKey
     toVariant = inlineKeyToVariant
-    fromVariant = inlineKeyFromVariant        
+    fromVariant = inlineKeyFromVariant
 
 
 type MarkupKeyRow =
@@ -805,7 +808,7 @@ readMarkupKey =
         , underline : Variant.use Underline
         , verbatim : Variant.use Verbatim
         , inlineCode : Variant.use InlineCode
-        , inline : Variant.use1 Inline 
+        , inline : Variant.use1 Inline
         , strike : Variant.use Strike
         , error : Variant.use Error -- FIXME
         }
@@ -1520,10 +1523,10 @@ instance JsonOverRow PlanningRow Planning where
 
 
 type DocRow =
-    ( blocks :: 
-        Array 
+    ( blocks ::
+        Array
             { keywords :: JsonKeywords String
-            , block :: Variant BlockRow 
+            , block :: Variant BlockRow
             }
     , sections :: Array JsonSectionId
     )
@@ -1550,10 +1553,10 @@ type SectionRow =
 type FileRow =
     ( meta :: JsonKeywords String
     , doc :: Record DocRow
-    , sections :: 
-        Array 
+    , sections ::
+        Array
             { id :: JsonSectionId
-            , section :: Record SectionRow 
+            , section :: Record SectionRow
             }
     )
 
@@ -1673,11 +1676,11 @@ collectSections (SectionId parentId) sections =
 
 convertDoc :: JsonSectionId -> OrgDoc -> Record DocRow /\ SectionsMap
 convertDoc parentId (OrgDoc doc) =
-    let 
+    let
         (sectionsIds /\ sectionsMap) = collectSections parentId doc.sections
         collectKeywords = collectKeywords' []
-        collectKeywords' prev = 
-            case _ of 
+        collectKeywords' prev =
+            case _ of
                 WithKeyword keyword block ->
                     collectKeywords' (Array.snoc prev $ Keywords.toRec keyword) block
                 block ->
@@ -1705,9 +1708,9 @@ loadDoc allSections doc =
     where
         blockWithKeywords { keywords, block } =
             case Array.uncons keywords of
-                Just { head, tail } -> 
+                Just { head, tail } ->
                     WithKeyword (Keywords.fromRec head) $ blockWithKeywords { keywords : tail, block }
-                Nothing -> 
+                Nothing ->
                     fromVariant block
         loadOrEmpty sectionId =
             Map.lookup sectionId allSections
@@ -1759,24 +1762,24 @@ instance WriteForeign OrgFile where writeImpl = writeImplRow
 
 
 flattenWords :: Array Words -> Array Words
-flattenWords = 
-    flattenJoins $ case _ of 
+flattenWords =
+    flattenJoins $ case _ of
         JoinW wa wb -> Just $ wa /\ wb
         _ -> Nothing
 
 
 flattenBlocks :: Array Block -> Array Block
 flattenBlocks =
-    flattenJoins $ case _ of 
+    flattenJoins $ case _ of
         JoinB ba bb -> Just $ ba /\ bb
         _ -> Nothing
 
 
 flattenJoins :: forall a. (a -> Maybe (a /\ a)) -> Array a -> Array a
-flattenJoins isJoin = 
+flattenJoins isJoin =
     Array.concatMap flattenJoin
-    where 
-        flattenJoin item = 
-            case isJoin item of 
+    where
+        flattenJoin item =
+            case isJoin item of
                 Just (joinA /\ joinB) -> [ joinA, joinB ]
                 Nothing -> [ item ]
