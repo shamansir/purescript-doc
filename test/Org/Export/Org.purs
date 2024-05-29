@@ -12,12 +12,12 @@ import Data.Text.Format.Org.Render as R
 import Node.Encoding (Encoding(..))
 import Node.FS.Sync (readTextFile)
 
-import Test.Spec (Spec, describe)
+import Test.Spec (Spec, describe, it, pending)
 import Test.Spec.Assertions (shouldEqual)
 
 import Test.Utils as U
 
-import Test.Org.Export.Samples (samples)
+import Test.Org.Export.Samples (IndentMode(..), samples)
 
 
 spec :: Spec Unit
@@ -31,10 +31,18 @@ spec = do
     -}
 
     U.helper
-        { title : const _.friendly
-        , spec : \{ slug, file } -> qtest slug file
+        { title : const (_.friendly >>> (<>) "Zero: ")
+        , spec : \{ slug, file } -> qtest slug R.defaultRO file
         }
-        samples
+        $ samples ZeroIndent
+
+    -- it "---" $ pure unit
+
+    U.helper
+        { title : const (_.friendly >>> (<>) "Deep: ")
+        , spec : \{ slug, file } -> qtest slug R.indentByDeep file
+        }
+        $ samples SmartIndent
 
 
 renderOptions :: D.Options
@@ -44,8 +52,8 @@ renderOptions = { break : D.All, indent : D.Spaces 1 }
 qtest
     :: forall (m ∷ Type -> Type)
      . Bind m => MonadEffect m => MonadThrow _ m
-    => String -> OrgFile -> m Unit
-qtest fileSlug orgFile = do
+    => String -> R.RenderOptions -> OrgFile -> m Unit
+qtest fileSlug ro orgFile = do
     orgTestText <- liftEffect $ readTextFile UTF8 ("./test/examples/org-test/" <> fileSlug <> ".org")
-    (D.render renderOptions $ R.layout orgFile)
+    (D.render renderOptions $ R.layoutWith ro orgFile)
             `shouldEqual` orgTestText

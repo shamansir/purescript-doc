@@ -7,7 +7,7 @@
   The blank lines above are considered a part of the drawer.
   
   - Item 1
-  
+
   - Item 2
     :drawer:
     inside item 2
@@ -20,9 +20,9 @@
    This is inside the drawer.
    :end:
    After the drawer.
-
+   
 * Heading title is a part of the headline element itself <BEGIN>
-
+  
   Text inside heading is considered a part of its CONTENTS and can
   contain other elements recursively.  This paragraph only has CONTENTS,
   no BEGIN, no END, and a BLANK line.

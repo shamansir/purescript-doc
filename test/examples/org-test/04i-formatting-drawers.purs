@@ -36,12 +36,12 @@ test =
                     ]
                 )
             , Org.sec 1
-                    [ Org.text "Heading title is a part of the headline element itself <BEGIN>"
-                    , Org.br, Org.br
-                    , Org.text "Text inside heading is considered a part of its CONTENTS and can", Org.br
-                    , Org.text "contain other elements recursively.  This paragraph only has CONTENTS,", Org.br
-                    , Org.text "no BEGIN, no END, and a BLANK line."
-                    ]
+                [ Org.text "Heading title is a part of the headline element itself <BEGIN>"
+                , Org.br, Org.br
+                , Org.text "Text inside heading is considered a part of its CONTENTS and can", Org.br
+                , Org.text "contain other elements recursively.  This paragraph only has CONTENTS,", Org.br
+                , Org.text "no BEGIN, no END, and a BLANK line."
+                ]
                 (Org.db1 $ Org.para1 $ Org.text "This is the end of the heading, no END exists for headings."
                 )
                 # Org.drawer "drawer"

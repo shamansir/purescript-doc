@@ -36,7 +36,7 @@ data DrawerMode
 
 
 layout :: OrgFile -> Doc
-layout = layoutWith smartLists
+layout = layoutWith defaultRO
 
 
 layoutWith :: RO -> OrgFile -> Doc
@@ -70,13 +70,14 @@ layoutBlock ro deep = case _ of
     Org.Of conf words ->
         case blockNameAndArgs conf of
             nameDoc /\ mbArgsDoc ->
-                D.nest' indent
-                    [ D.text "#+begin_" <> nameDoc <> case mbArgsDoc of
+                let
+                    firstLine = D.text "#+begin_" <> nameDoc <> case mbArgsDoc of
                         Just argsDoc -> D.space <> argsDoc
                         Nothing -> D.nil
-                    , D.join $ layoutWords <$> NEA.toArray words
-                    , D.text "#+end_" <> nameDoc
-                    ]
+                    endLine = D.text "#+end_" <> nameDoc
+                in D.indentBy indent firstLine
+                    </> D.nest' indent (words # NEA.toArray # _splitByBreak)
+                    </> D.indentBy indent endLine
     Org.List items ->
         layoutItems ro (Items deep) deep items
     Org.Table format rows ->
@@ -97,14 +98,14 @@ layoutBlock ro deep = case _ of
         lines
             # map Org.Plain
             # _splitByBreak' (\ws -> D.text "# " <> layoutWords ws)
-            # D.nest' 0
+            # D.nest' indent
     Org.WithKeyword (Keywords.Keyword kwd) block ->
         D.nest indent (layoutKeyword AsKeyword kwd)
         </> layoutBlock ro deep block
     Org.JoinB blockA blockB ->
         layoutBlock ro deep blockA </> layoutBlock ro deep blockB
     Org.IsDrawer drawer ->
-        layoutDrawer ro deep drawer
+        layoutDrawer ro (Block deep) deep drawer
     Org.Footnote label def ->
         D.bracket "[" (D.text "fn:" <> D.text label) "]"
             <+> D.stack (layoutWords <$> NEA.toArray def) -- FIXME: impoperly renders line breaks, see 04e
@@ -139,8 +140,12 @@ layoutSection :: RO -> Org.Section -> Doc
 layoutSection ro (Org.Section section) =
     let
         deep = deepAs section.level
-        headingText =
-            section.heading # NEA.toArray # map layoutWords # D.join
+        headingLines = section.heading # NEA.toArray # _splitByBreak
+        headingFirstLine = Array.head headingLines
+        headingHasSeveralLines = Array.length headingLines > 1
+        restOfHeadingLines = Array.tail headingLines # fromMaybe []
+        -- headingText =
+        --     section.heading # NEA.toArray # map layoutWords # D.join
         levelPrefix = Array.replicate section.level "*" # Array.fold # D.text
         commentPrefix = if section.comment then Just $ D.text "COMMENT" else Nothing
         todoPrefix = section.todo
@@ -169,7 +174,7 @@ layoutSection ro (Org.Section section) =
             , todoPrefix
             , priorityPrefix
             , commentPrefix
-            , Just headingText
+            , headingFirstLine
             , cookieSuffix
             , tagsSuffix
             ]
@@ -188,12 +193,12 @@ layoutSection ro (Org.Section section) =
             section.props
                 # Keywords.fromKeywords'
                 # map (layoutKeyword AsProperty)
-                # layoutDrawer' ro deep DrawerUpper "properties"
+                # layoutDrawer' ro (Section deep) deep DrawerUpper "properties"
         hasOtherDrawers =
             Array.length section.drawers > 0
         otherDrawers =
             section.drawers
-                # map (layoutDrawer ro deep)
+                # map (layoutDrawer ro (Section deep) deep)
                 # D.joinWith D.break
         planningLine =
             [ planningItem "TIMESTAMP" <$> planning.timestamp
@@ -202,16 +207,19 @@ layoutSection ro (Org.Section section) =
             , planningItem "CLOSED"    <$> planning.closed
             ]
             # D.spacify
+        indent = ro.calcIndent $ Section deep
     in
         if not $ Org.isDocEmpty section.doc then
             headlingLineCombined
                 <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
                 <> (if hasProperties then propertiesDrawer <> D.break else D.nil)
+                <> (if headingHasSeveralLines then D.nest' indent restOfHeadingLines <> D.break else D.nil)
                 <> (if hasOtherDrawers then otherDrawers <> D.break else D.nil)
                 <> layoutDoc ro deep section.doc
         else
             headlingLineCombined
             <> (if hasProperties then D.break <> propertiesDrawer <> D.break else D.nil)
+            <> (if headingHasSeveralLines then D.nest' indent restOfHeadingLines <> D.break else D.nil)
             <> (if hasOtherDrawers then otherDrawers <> D.break else D.nil)
             <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
 
@@ -392,16 +400,16 @@ layoutItems ro parentSubj deep (Org.ListItems lt items) =
                 curIndent = indentFor idx
                 nextDeep = deepAs curIndent
             in
-                D.indentBy curIndent (itemLine idx item)
+                itemLine idx item
                 </> layoutItems ro indentSubj nextDeep subs
         itemMaybeWithDrawers idx item@(Org.Item opts _ _) =
-            D.indentBy (indentFor idx) (itemLine idx item)
-            <> if hasDrawers opts then drawers opts else D.nil
+            itemLine idx item
+            <> if hasDrawers opts then drawers idx opts else D.nil
         hasDrawers opts =
             Array.length opts.drawers > 0
-        drawers opts =
+        drawers idx opts =
             opts.drawers
-                # map (layoutDrawer ro deep) -- FIXME : we use `deep` only to indent drawers
+                # map (layoutDrawer ro (indentSubjFor idx) deep)
                 # D.joinWith D.break
         -- indent = ro.calcIndent subj
             -- case parentSubj of
@@ -427,21 +435,21 @@ layoutKeyword AsKeyword kwd =
             Nothing /\ Nothing -> D.bracket "#+" (D.text kwd.name) ":"
 
 
-layoutDrawer :: RO -> Deep -> Org.Drawer -> Doc
-layoutDrawer ro deep (Org.Drawer { name, content }) =
+layoutDrawer :: RO -> IndentSubject -> Deep -> Org.Drawer -> Doc
+layoutDrawer ro is deep (Org.Drawer { name, content }) =
     content
         # NEA.toArray
         # _splitByBreak
-        # layoutDrawer' ro deep DrawerLower name
+        # layoutDrawer' ro is deep DrawerLower name
 
 
-layoutDrawer' :: RO -> Deep -> DrawerMode -> String -> Array Doc -> Doc
-layoutDrawer' ro deep mode name content =
+layoutDrawer' :: RO -> IndentSubject -> Deep -> DrawerMode -> String -> Array Doc -> Doc
+layoutDrawer' ro is deep mode name content =
     D.indentBy indent (D.wrap ":" $ D.text $ applyMode name)
     </> D.nest' indent content
     </> D.indentBy indent (D.wrap ":" $ D.text $ applyMode "end")
     where
-        indent = ro.calcIndent $ Drawer deep
+        indent = ro.calcIndent $ Drawer is deep
         applyMode =
             case mode of
                 DrawerUpper -> String.toUpper
@@ -470,16 +478,22 @@ showdd n =
     if n < 10 then "0" <> show n else show n
 
 
-defaultRO :: RO
-defaultRO =
+indentByDeep :: RO
+indentByDeep =
     { calcIndent : indentFn
     }
     where
         indentFn (Block deep) = deepToIndent deep
+        indentFn (Section deep) = deepToIndent deep
         indentFn (Items deep) = deepToIndent deep
-        indentFn (Drawer deep) = deepToIndent deep
-        indentFn (ListItem parent lt idx) =
-            {- indentFn parent + -} _indentByLt idx lt
+        indentFn (Drawer (ListItem _ parentLt parentIdx) deep) =
+            deepToIndent deep + _indentByLt parentIdx parentLt
+        indentFn (Drawer _ deep) =
+            deepToIndent deep
+        indentFn (ListItem parent@(ListItem _ parentLt parentIdx) _ _) =
+            indentFn parent + _indentByLt parentIdx parentLt
+        indentFn (ListItem parent _ _) =
+            indentFn parent
 
 
 _indentByLt :: Int -> Org.ListType -> Int
@@ -499,8 +513,8 @@ alwaysZeroRO =
     }
 
 
-smartLists :: RO
-smartLists =
+defaultRO :: RO
+defaultRO =
     { calcIndent : indentFn
     }
     where
@@ -547,8 +561,9 @@ _splitByBreak' process =
 
 data IndentSubject
     = Block Deep
+    | Section Deep
     | Items Deep
-    | Drawer Deep -- TODO: consider including parent
+    | Drawer IndentSubject Deep -- TODO: consider including parent
     | ListItem IndentSubject Org.ListType Int
 
 

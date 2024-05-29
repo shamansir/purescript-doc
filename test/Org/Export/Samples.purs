@@ -32,12 +32,19 @@ type Sample =
     }
 
 
-samples :: Array Sample
-samples = zeroIndentSamples
+data IndentMode
+    = ZeroIndent
+    | SmartIndent
 
 
-zeroIndentSamples :: Array Sample
-zeroIndentSamples =
+samples :: IndentMode -> Array Sample
+samples = case _ of
+    ZeroIndent -> zeroIndentedSamples
+    SmartIndent -> smartIndentedSamples
+
+
+zeroIndentedSamples :: Array Sample
+zeroIndentedSamples =
     [ { file : Test01.test, slug : "01-empty", friendly : "01. works with the syntax sample" }
     , { file : Test02a.test, slug : "02a-meta", friendly : "02. works with the meta sample (a)" }
     , { file : Test02b.test, slug : "02b-meta-special", friendly : "02. works with the special meta sample (b)" }
@@ -58,8 +65,8 @@ zeroIndentSamples =
     ]
 
 
-indentedSamples :: Array Sample
-indentedSamples =
+smartIndentedSamples :: Array Sample -- TODO: include only different samples
+smartIndentedSamples =
     [ { file : Test01.test, slug : "01-empty", friendly : "01. works with the syntax sample" }
     , { file : Test02a.test, slug : "02a-meta", friendly : "02. works with the meta sample (a)" }
     , { file : Test02b.test, slug : "02b-meta-special", friendly : "02. works with the special meta sample (b)" }

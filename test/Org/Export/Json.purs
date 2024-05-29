@@ -27,7 +27,7 @@ import Test.Spec.Assertions (fail, shouldEqual, shouldNotEqual)
 
 import Test.Utils as U
 
-import Test.Org.Export.Samples (samples)
+import Test.Org.Export.Samples (IndentMode(..), samples)
 
 
 spec :: Spec Unit
@@ -57,7 +57,7 @@ spec = do
             { title : const _.friendly
             , spec : \{ file } -> qjsontest file
             }
-            samples
+            $ samples ZeroIndent
 
 
 
@@ -74,16 +74,16 @@ qjsontest orgFile = do
     let eFromJsonTxt = (readJSON orgFileJson :: E OrgFile)
     -- liftEffect $ Console.log orgFileJson
     let eFromJsonF = read $ write orgFile
-    case eFromJsonF of 
-        Right orgFileFromJsonF -> 
+    case eFromJsonF of
+        Right orgFileFromJsonF ->
             (D.render renderOptions $ R.layout orgFile)
                     `shouldEqual` (D.render renderOptions $ R.layout orgFileFromJsonF)
-        Left errors -> 
+        Left errors ->
             traverse_ (F.renderForeignError >>> fail) errors
-    case eFromJsonTxt of 
+    case eFromJsonTxt of
         Right orgFileFromJsonTxt -> do
             writeJSON orgFileFromJsonTxt `shouldEqual` orgFileJson
             (D.render renderOptions $ R.layout orgFile)
                     `shouldEqual` (D.render renderOptions $ R.layout orgFileFromJsonTxt)
-        Left errors -> 
+        Left errors ->
             traverse_ (F.renderForeignError >>> fail) errors
