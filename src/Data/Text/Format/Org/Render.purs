@@ -84,25 +84,19 @@ layoutBlock ro deep = case _ of
     Org.Paragraph words ->
         words
             # NEA.toArray
-            # splitByBreak
-            # map (map layoutWords)
-            # map D.join
+            # _splitByBreak
             # D.nest' indent
     Org.HRule ->
         D.text "-----"
     Org.FixedWidth words ->
         words
             # NEA.toArray
-            # splitByBreak
-            # map (map \ws -> D.text ": " <> layoutWords ws)
-            # map D.join
+            # _splitByBreak' (\ws -> D.text ": " <> layoutWords ws)
             # D.nest' indent
     Org.LComment lines ->
         lines
             # map Org.Plain
-            # splitByBreak
-            # map (map \ws -> D.text "# " <> layoutWords ws)
-            # map D.join
+            # _splitByBreak' (\ws -> D.text "# " <> layoutWords ws)
             # D.nest' 0
     Org.WithKeyword (Keywords.Keyword kwd) block ->
         D.nest indent (layoutKeyword AsKeyword kwd)
@@ -136,26 +130,7 @@ layoutBlock ro deep = case _ of
                     if (Array.length args > 0)
                         then Just $ D.joinWith D.space $ (D.text <$> args)
                         else Nothing
-                    )
-
-        splitByBreak :: Array Org.Words -> Array (Array Org.Words)
-        splitByBreak =
-            Array.foldl
-                (\{ prev, last } w ->
-                    case w of
-                        Org.Break ->
-                            { prev : Array.snoc prev last
-                            , last : []
-                            }
-                        _ ->
-                            { prev
-                            , last : Array.snoc last w
-                            }
                 )
-                { prev : ([] :: Array (Array Org.Words))
-                , last : ([] :: Array Org.Words)
-                }
-            >>> \{ prev, last } -> Array.snoc prev last
 
         indent = ro.calcIndent $ Block deep
 
@@ -163,6 +138,7 @@ layoutBlock ro deep = case _ of
 layoutSection :: RO -> Org.Section -> Doc
 layoutSection ro (Org.Section section) =
     let
+        deep = deepAs section.level
         headingText =
             section.heading # NEA.toArray # map layoutWords # D.join
         levelPrefix = Array.replicate section.level "*" # Array.fold # D.text
@@ -212,13 +188,12 @@ layoutSection ro (Org.Section section) =
             section.props
                 # Keywords.fromKeywords'
                 # map (layoutKeyword AsProperty)
-                # D.joinWith D.break
-                # layoutDrawer' ro root DrawerUpper "properties"
+                # layoutDrawer' ro deep DrawerUpper "properties"
         hasOtherDrawers =
             Array.length section.drawers > 0
         otherDrawers =
             section.drawers
-                # map (layoutDrawer ro root)
+                # map (layoutDrawer ro deep)
                 # D.joinWith D.break
         planningLine =
             [ planningItem "TIMESTAMP" <$> planning.timestamp
@@ -233,7 +208,7 @@ layoutSection ro (Org.Section section) =
                 <> (if hasPlanning then D.break <> planningLine <> D.break else D.break)
                 <> (if hasProperties then propertiesDrawer <> D.break else D.nil)
                 <> (if hasOtherDrawers then otherDrawers <> D.break else D.nil)
-                <> layoutDoc ro (deepAs section.level) section.doc
+                <> layoutDoc ro deep section.doc
         else
             headlingLineCombined
             <> (if hasProperties then D.break <> propertiesDrawer <> D.break else D.nil)
@@ -456,17 +431,15 @@ layoutDrawer :: RO -> Deep -> Org.Drawer -> Doc
 layoutDrawer ro deep (Org.Drawer { name, content }) =
     content
         # NEA.toArray
-        # map layoutWords
-        # D.join
+        # _splitByBreak
         # layoutDrawer' ro deep DrawerLower name
-        # D.nest (ro.calcIndent $ Drawer deep)
 
 
-layoutDrawer' :: RO -> Deep -> DrawerMode -> String -> Doc -> Doc
+layoutDrawer' :: RO -> Deep -> DrawerMode -> String -> Array Doc -> Doc
 layoutDrawer' ro deep mode name content =
-    D.wrap ":" (D.text $ applyMode name)
-    </> D.nest indent content
-    </> D.nest indent (D.wrap ":" (D.text $ applyMode "end"))
+    D.indentBy indent (D.wrap ":" $ D.text $ applyMode name)
+    </> D.nest' indent content
+    </> D.indentBy indent (D.wrap ":" $ D.text $ applyMode "end")
     where
         indent = ro.calcIndent $ Drawer deep
         applyMode =
@@ -506,7 +479,7 @@ defaultRO =
         indentFn (Items deep) = deepToIndent deep
         indentFn (Drawer deep) = deepToIndent deep
         indentFn (ListItem parent lt idx) =
-            indentFn parent + _indentByLt idx lt
+            {- indentFn parent + -} _indentByLt idx lt
 
 
 _indentByLt :: Int -> Org.ListType -> Int
@@ -531,9 +504,6 @@ smartLists =
     { calcIndent : indentFn
     }
     where
-        indentFn (Block _) = 0
-        indentFn (Items _) = 0
-        indentFn (Drawer _) = 0
         indentFn (ListItem parent lt idx) =
             case lt of
                 Org.Bulleted ->
@@ -545,6 +515,34 @@ smartLists =
                                 indentFn parent + _indentByLt idx lt
                             else 0
                         _ -> 0
+        indentFn _ = 0
+
+
+_splitByBreak :: Array Org.Words -> Array Doc
+_splitByBreak = _splitByBreak' layoutWords
+
+
+_splitByBreak' :: (Org.Words -> Doc) -> Array Org.Words -> Array Doc
+_splitByBreak' process =
+    helper >>> map (map process) >>> map D.join
+    where
+        helper =
+            Array.foldl
+                (\{ prev, last } w ->
+                    case w of
+                        Org.Break ->
+                            { prev : Array.snoc prev last
+                            , last : []
+                            }
+                        _ ->
+                            { prev
+                            , last : Array.snoc last w
+                            }
+                )
+                { prev : ([] :: Array (Array Org.Words))
+                , last : ([] :: Array Org.Words)
+                }
+            >>> \{ prev, last } -> Array.snoc prev last
 
 
 data IndentSubject
