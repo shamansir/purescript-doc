@@ -11,10 +11,11 @@ import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.Newtype (unwrap)
 import Data.String (toUpper, toLower, take) as String
 import Data.String.CodeUnits (singleton) as String
-import Data.Text.Doc (Doc, (<+>), (</>), (<//>))
-import Data.Text.Doc as D
 import Data.Time (Time, hour, minute) as DT
 import Data.Tuple.Nested ((/\))
+
+import Data.Text.Doc (Doc, (<+>), (</>), (<//>))
+import Data.Text.Doc as D
 
 import Data.Text.Format.Org.Construct (isDocEmpty) as Org
 import Data.Text.Format.Org.Types (OrgFile(..), OrgDoc(..))

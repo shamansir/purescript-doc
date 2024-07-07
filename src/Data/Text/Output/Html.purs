@@ -58,7 +58,7 @@ instance Renderer Html where
         Join _ _ -> S.Full
         Wrap _ _ _ -> S.Full
         List _ _ _ -> S.Text
-        Table _ -> S.None
+        Table _ _ -> S.None
         Hr -> S.Text
 
     layout :: Proxy Html -> Tag -> Doc
@@ -99,7 +99,7 @@ instance Renderer Html where
                 Footnote (FootnoteId (E.Left ftn)) -> wrapAttr "a" "name" ("#" <> show ftn) tag
                 Footnote (FootnoteId (E.Right ftn)) -> wrapAttr "a" "name" ("#" <> ftn) tag
                 -- _ -> layout tag -- other format's are not supported
-        Split tagA tagB -> D.nil -- layout tagA <> D.text "{|}" <> layout tagB
+        Split tagA tagB -> layout tagA <> layout tagB
         Align Left tag -> wrapS "div" "text-align:left" tag
         Align Right tag -> wrapS "div" "text-align:right" tag
         Align Center tag -> wrapS "div" "text-align:center" tag
@@ -122,7 +122,10 @@ instance Renderer Html where
         List bullet start items ->
             wrapAttr "label" "for" "" start
             <> layout (List bullet Empty items)
-        Table items -> D.nil -- TODO
+        Table headers rows ->
+            wrap' "table"
+                $ (wrap' "thead" $ D.stack $ wrap "th" <$> headers)
+                <> D.break <> D.stack (wrap' "tr" <$> D.stack <$> map (wrap "td") <$> rows)
         Hr -> wrapE "hr"
         where
             -- b bullet (index /\ doc) = bulletPrefix index bullet /\ doc

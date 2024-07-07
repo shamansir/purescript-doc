@@ -90,7 +90,10 @@ instance Renderer Markdown where
                 [ layout start
                 , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
-        Table items -> D.nil -- TODO
+        Table headers rows ->
+            wrap' "table"
+                $ (wrap' "thead" $ D.stack $ wrap "th" <$> headers)
+                <> D.break <> D.stack (wrap' "tr" <$> D.stack <$> map (wrap "td") <$> rows)
         Hr -> D.text "---------"
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc

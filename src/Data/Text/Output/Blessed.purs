@@ -69,7 +69,7 @@ instance Renderer Blessed where
         Join _ _ -> S.Full
         Wrap _ _ _ -> S.Full
         List _ _ _ -> S.Text
-        Table _ -> S.None
+        Table _ _ -> S.None
         Hr -> S.Text
 
     layout :: Proxy Blessed -> Tag -> Doc
@@ -110,7 +110,12 @@ instance Renderer Blessed where
                 [ layout start
                 , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
-        Table items -> D.nil
+        Table headers rows ->
+            D.nest' 0 $
+                [ D.joinWith (D.text "|") $ layout <$> headers
+                , layout Hr
+                ] <> (D.joinWith (D.text "|") <$> map layout <$> rows)
+
         Hr -> D.text "----------"
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc

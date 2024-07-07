@@ -108,7 +108,8 @@ data Tag
     | Nest Indent (Array Tag)
     | Newline
     | List Bullet Tag (Array Tag) -- The root `Tag`` is optional (if `Empty`) header of the list
-    | Table (Array (Tag /\ Array Tag))
+    -- | Table (Array (Tag /\ Array Tag))
+    | Table (Array Tag) (Array (Array Tag))
     | Hr
 
 -- TODO: binary operators for tags
@@ -252,6 +253,14 @@ code :: String -> String -> Tag
 code pl = Format (Code $ ProgrammingLanguage pl) <<< Plain
 
 
+tableh :: Array Tag -> Array (Array Tag) -> Tag
+tableh = Table
+
+
+table :: Array (Array Tag) -> Tag
+table = tableh []
+
+
 class Formatter a where
     format :: a -> Tag
 
@@ -333,7 +342,7 @@ instance Show Tag where
         Join tag tags -> wraplistarg "join" (show tag) $ show <$> tags
         Wrap start end tag -> wraparg2 "wrap" start end $ show tag
         List bullet tag tags -> wraplistarg2 "list" (show bullet) (show tag) $ show <$> tags
-        Table tags -> wrap "table" $ String.joinWith "|" $ uncurry tableitems <$> tags
+        Table headers rows -> wrap "table" $ (wrap "header" $ String.joinWith "," $ show <$> headers) <> "|" <> (wraplist "row" $ wraplist "column" <$> map show <$> rows)
         where
             just title = "(" <> title <> ")"
             wrap title v = "(" <> title <> ":" <> v <> ")"
@@ -343,7 +352,7 @@ instance Show Tag where
             wraplist title vals = "(" <> title <> ":" <> String.joinWith "," vals <> ")"
             wraplistarg title arg vals = "(" <> title <> "(" <> arg <> "):" <> String.joinWith "," vals <> ")"
             wraplistarg2 title arg1 arg2 vals = "(" <> title <> "(" <> arg1 <> "," <> arg2 <> "):" <> String.joinWith "," vals <> ")"
-            tableitems t ts = show t <> ":" <> String.joinWith "," (show <$> ts)
+            -- tableitems t ts = show t <> ":" <> String.joinWith "," (show <$> ts)
 
 
 instance Show Align where

@@ -6,7 +6,7 @@ import Color as Color
 
 import Type.Proxy (Proxy(..))
 
-import Data.Array (intersperse, mapWithIndex) as Array
+import Data.Array (length, replicate, intersperse, mapWithIndex) as Array
 import Data.Tuple (uncurry)
 import Data.Tuple.Nested ((/\))
 import Data.Maybe (Maybe(..))
@@ -87,7 +87,11 @@ instance Renderer Org where
                 [ layout start
                 , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
-        Table items -> D.nil -- TODO
+        Table headers rows ->
+            D.nest' 0 $
+                [ D.wrap "|" $ D.joinWith (D.text "|") $ layout <$> headers
+                , D.wrap "|" $ D.join $ Array.intersperse (D.text "+") $ Array.replicate (Array.length headers) $ D.text "-"
+                ] <> (D.wrap "|" <$> D.joinWith (D.text "|") <$> map layout <$> rows)
         Hr -> D.text "---------"
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc

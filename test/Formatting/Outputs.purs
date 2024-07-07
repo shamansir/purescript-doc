@@ -59,4 +59,49 @@ function() { return 42; }
 function() { return 42; }
 #+END_SRC"""
         }
+    , F.tableh
+        [ F.s "a", F.s "b", F.s "c" ]
+        [ F.s <$> [ "1", "4", "7" ]
+        , F.s <$> [ "2", "5", "8" ]
+        , F.s <$> [ "3", "6", "9" ]
+        ] /\
+        { html :
+"""<table><thead><th>a</th>
+<th>b</th>
+<th>c</th></thead>
+<tr><td>1</td>
+<td>4</td>
+<td>7</td></tr>
+<tr><td>2</td>
+<td>5</td>
+<td>8</td></tr>
+<tr><td>3</td>
+<td>6</td>
+<td>9</td></tr></table>"""
+        , markdown :
+"""<table><thead><th>a</th>
+<th>b</th>
+<th>c</th></thead>
+<tr><td>1</td>
+<td>4</td>
+<td>7</td></tr>
+<tr><td>2</td>
+<td>5</td>
+<td>8</td></tr>
+<tr><td>3</td>
+<td>6</td>
+<td>9</td></tr></table>"""
+        , blessed :
+"""a|b|c
+----------
+1|4|7
+2|5|8
+3|6|9"""
+        , org :
+"""|a|b|c|
+|-+-+-|
+|1|4|7|
+|2|5|8|
+|3|6|9|"""
+        }
     ]
