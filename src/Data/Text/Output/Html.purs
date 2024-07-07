@@ -2,36 +2,20 @@ module Data.Text.Output.Html where
 
 import Prelude
 
-import Type.Proxy (Proxy(..))
-import Data.Text.Output (OutputKind, class Renderer, Support)
-
-
 import Color as Color
 
 import Type.Proxy (Proxy(..))
 
-import Data.Array (intersperse, mapWithIndex) as Array
+import Data.Array (intersperse) as Array
 import Data.Newtype (unwrap)
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Enum (toEnum)
+import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
-import Data.Tuple (curry, uncurry)
-import Data.Tuple.Nested ((/\), type (/\))
-import Data.String (joinWith) as String
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Url(..), Level(..), Anchor(..), Bullet(..), FootnoteId(..), ProgrammingLanguage(..), bulletPrefix)
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Url(..), Level(..), Anchor(..), Bullet(..), FootnoteId(..), ProgrammingLanguage(..))
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
-import Data.Text.Output (Support(..), perform) as S
-import Data.Text.Doc (Doc, (<+>))
+import Data.Text.Output (Support(..)) as S
+import Data.Text.Doc (Doc)
 import Data.Text.Doc as D
-import Data.DateTime (DateTime(..)) as DT
-import Data.DateTime as DateTime
-import Data.Date (Date(..), canonicalDate) as Dt
-import Data.Date as Date
-import Data.Time (Time(..)) as Tm
-import Data.Time.Component (Hour(..), Minute(..), Millisecond(..)) as Tm
-import Data.Time as Time
-import Data.Formatter.DateTime as FDT
 
 
 foreign import data Html :: OutputKind
@@ -89,14 +73,16 @@ instance Renderer Html where
                 Bg (E.Left colorStr) -> wrapS "span" ("background-color:" <> colorStr) tag
                 Bg (E.Right color) -> wrapS "span" ("background-color:" <> Color.toHexString color) tag
                 Header (Level n) mbAnchor -> wrap' ("h" <> show (max 6 n)) $ case mbAnchor of
-                    Just (Anchor anchor) -> wrapAttr "a" "href" ("#" <> anchor) tag
+                    Just (Anchor anchor) -> wrapAttr "a" "name" anchor tag
                     Nothing -> layout tag
-                Bold -> wrap "bold" tag
+                Bold -> wrap "b" tag
+                Emphasis -> wrap "em" tag
                 Underline -> wrap "ins" tag
                 Strikethrough -> wrap "del" tag
                 Monospaced -> wrap "code" tag
                 Verbatim -> wrap "code" tag
                 FixedWidth -> wrap "code" tag
+                Highlight -> wrap "mark" tag
                 Code (ProgrammingLanguage lang) -> wrapAttr "code" "lang" lang tag
                 Quote -> wrap "qoute" tag
                 Sub -> wrap "sub" tag

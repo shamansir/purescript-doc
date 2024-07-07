@@ -37,8 +37,8 @@ class Renderer (x :: OutputKind) where
 
 
 class (Renderer x, Formatter a) <= Format (x :: OutputKind) a | x -> a where
-    perform :: Proxy x -> Doc.Options -> Tag -> String
+    perform :: Proxy x -> Doc.Options -> a -> String
 
 
 instance (Renderer x, Formatter a) => Format x a where
-    perform p opts = layout p >>> Doc.render opts
+    perform p opts = format >>> layout p >>> Doc.render opts

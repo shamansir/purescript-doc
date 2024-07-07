@@ -53,7 +53,9 @@ data Align
 
 data Format
     = Bold
+    | Emphasis
     | Underline
+    | Highlight
     | Blink
     | Inverse
     | Invisible
@@ -246,6 +248,10 @@ joinWith :: Tag -> Array Tag -> Tag
 joinWith = Join
 
 
+code :: String -> String -> Tag
+code pl = Format (Code $ ProgrammingLanguage pl) <<< Plain
+
+
 class Formatter a where
     format :: a -> Tag
 
@@ -360,7 +366,9 @@ instance Show Bullet where
 instance Show Format where
     show = case _ of
         Bold -> "bold"
+        Emphasis -> "emphasis"
         Underline -> "underline"
+        Highlight -> "highlight"
         Blink -> "blink"
         Inverse -> "inverse"
         Invisible -> "invisible"

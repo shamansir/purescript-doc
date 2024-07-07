@@ -6,6 +6,7 @@ import Data.Array ((:))
 import Data.Array (mapWithIndex, intersperse, replicate, uncons, catMaybes, foldl) as Array
 import Data.Maybe (Maybe(..))
 import Data.String (codePointFromChar, singleton, fromCodePointArray, joinWith) as String
+import Data.Foldable (foldl)
 
 
 data Doc
@@ -137,6 +138,10 @@ wbracket :: String -> String -> Doc -> Doc
 wbracket l = flip $ bracket l
 wrap :: String -> Doc -> Doc
 wrap q = wbracket q q
+bracketbr :: String -> Doc -> String -> Doc
+bracketbr l x r = bracket l (break <> x <> break) r
+wrapbr :: String -> Doc -> Doc
+wrapbr q doc = bracketbr q doc q
 
 
 sp :: Doc -> Doc -> Doc
@@ -147,6 +152,8 @@ brbr :: Doc -> Doc -> Doc
 brbr x y = x <> break <> break <> y
 -- spbr :: Doc -> Doc -> Doc
 -- spbr x y = x <> (break) <> y
+repeat :: Int -> Doc -> Doc
+repeat n = foldl (<>) nil <<< Array.replicate n
 
 
 indentOf :: Int -> Doc
