@@ -7,7 +7,7 @@ import Color as Color
 import Type.Proxy (Proxy(..))
 
 import Data.Array (intersperse, mapWithIndex) as Array
-import Data.Newtype (unwrap)
+import Data.Newtype (unwrap) as NT
 import Data.Maybe (fromMaybe)
 import Data.Enum (toEnum)
 import Data.Either (Either(..)) as E
@@ -15,7 +15,8 @@ import Data.Tuple (curry, uncurry)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String (joinWith) as String
 import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Url(..), bulletPrefix)
-import Data.Text.Output (OutputKind, class Renderer, layout, Support)
+import Data.Text.Output (OutputKind, class Renderer, Support)
+import Data.Text.Output (layout) as O
 import Data.Text.Output (Support(..), perform) as S
 import Data.Text.Doc (Doc, (<+>))
 import Data.Text.Doc as D
@@ -34,7 +35,8 @@ foreign import data Blessed :: OutputKind
 blessed = Proxy :: _ Blessed
 
 
-layoutB = layout blessed
+layout :: Tag -> Doc
+layout = O.layout blessed
 
 
 instance Renderer Blessed where
@@ -86,39 +88,39 @@ instance Renderer Blessed where
                 Blink -> wrap "blink" tag
                 Inverse -> wrap "inverse" tag
                 Invisible -> wrap "invisible" tag
-                Define (Term dt) -> let dd = tag in D.break <> layout blessed dt <+> D.text "::" <+> layout blessed dd <> D.break
-                LinkTo ftn -> layout blessed tag <+> D.bracket "[" (D.text $ show $ unwrap ftn) "]"
-                Link (Url url) -> let title = tag in layout blessed title <+> D.bracket "(" (D.text url) ")"
-                Image (Url url) -> let title = tag in layout blessed title <+> D.bracket "(" (D.text url) ")"
-                Comment -> D.break <> layout blessed tag
-                _ -> layout blessed tag -- other format's are not supported
-        Split tagA tagB -> layout blessed tagA <> D.text "{|}" <> layout blessed tagB
+                Define (Term dt) -> let dd = tag in D.break <> layout dt <+> D.text "::" <+> layout dd <> D.break
+                LinkTo ftn -> layout tag <+> D.bracket "[" (D.text $ show $ NT.unwrap ftn) "]"
+                Link (Url url) -> let title = tag in layout title <+> D.bracket "(" (D.text url) ")"
+                Image (Url url) -> let title = tag in layout title <+> D.bracket "(" (D.text url) ")"
+                Comment -> D.break <> layout tag
+                _ -> layout tag -- other format's are not supported
+        Split tagA tagB -> layout tagA <> D.text "{|}" <> layout tagB
         Align Left tag -> wrap "left" tag
         Align Right tag -> wrap "right" tag
         Align Center tag -> wrap "center" tag
-        Pair tagA tagB -> layout blessed tagA <> layout blessed tagB
-        Para tags -> D.stack $ layout blessed <$> tags
-        Nest i tags -> D.nest' (unwrap i) $ layout blessed <$> tags
-        Join tag tags -> D.folddoc (<>) $ layout blessed <$> Array.intersperse tag tags
-        Wrap start end tag -> D.bracket start (layout blessed tag) end
+        Pair tagA tagB -> layout tagA <> layout tagB
+        Para tags -> D.stack $ layout <$> tags
+        Nest i tags -> D.nest' (NT.unwrap i) $ layout <$> tags
+        Join tag tags -> D.folddoc (<>) $ layout <$> Array.intersperse tag tags
+        Wrap start end tag -> D.bracket start (layout tag) end
         List bullet Empty items ->
-            D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout blessed <$> items)
+            D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
         List bullet start items ->
             D.nest' 0 $ -- FIXME: support levels from `Nest`
-                [ layout blessed start
-                , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout blessed <$> items)
+                [ layout start
+                , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
         Table items -> D.nil
         Hr -> D.text "----------"
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
-            wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout blessed tag <> D.bracket "{/" (D.text cmd) "}"
+            wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout tag <> D.bracket "{/" (D.text cmd) "}"
 
 
 singleLine :: Tag -> String
-singleLine = layout blessed >>> D.render { break : D.Space, indent : D.Empty }
+singleLine = layout >>> D.render { break : D.Space, indent : D.Empty }
 -- render = S.perform blessed { break : D.Space, indent : D.Empty }
 
 
 multiLine :: Tag -> String
-multiLine = layout blessed >>> D.render { break : D.All, indent : D.Spaces 2 }
+multiLine = layout >>> D.render { break : D.All, indent : D.Spaces 2 }

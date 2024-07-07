@@ -4,3 +4,6 @@ import Prelude
 
 
 data Org
+
+
+-- TODO: Move types from `Types` here
