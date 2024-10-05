@@ -65,7 +65,7 @@ instance Renderer Org where
                 Define (Term dt) -> layout dt <> D.break <> D.mark ":" (layout tag)
                 LinkTo (FootnoteId (E.Left ftn)) -> layout tag <> D.bracket "[^" (D.text $ show ftn) "]"
                 LinkTo (FootnoteId (E.Right ftn)) -> layout tag <> D.bracket "[^" (D.text ftn) "]"
-                Link (Url url) -> D.bracket "[" (D.bracket "[" (layout tag) "]" <> D.bracket "[" (D.text url) "]") "]"
+                Link (Url url) -> D.bracket "[" (D.bracket "[" (D.text url) "]" <> D.bracket "[" (layout tag) "]") "]"
                 Image (Url url) -> D.mark "#+CAPTION:" (layout tag) <> D.break <> D.bracket "[[" (D.text url) "]]"
                 Comment -> D.bracketbr "#+BEGIN_COMMENT" (layout tag) "#+END_COMMENT"
                 Footnote (FootnoteId (E.Left ftn)) -> D.bracket "[fn:" (D.text $ show ftn) "]" <> D.space <> layout tag
@@ -79,7 +79,7 @@ instance Renderer Org where
         Para tags -> D.stack $ layout <$> tags
         Nest (Indent i) tags -> D.nest' i $ layout <$> tags
         Join tag tags -> D.folddoc (<>) $ layout <$> Array.intersperse tag tags
-        Wrap start end tag -> D.bracket start (layout tag) end -- TODO: encode text
+        Wrap start end tag -> D.bracket' (layout start) (layout tag) (layout end) -- TODO: encode text
         List bullet Empty items ->
             D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
         List bullet start items ->

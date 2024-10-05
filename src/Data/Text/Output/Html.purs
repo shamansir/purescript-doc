@@ -109,7 +109,7 @@ instance Renderer Html where
         Para tags -> D.stack $ layout <$> tags
         Nest i tags -> D.nest' (unwrap i) $ ident i <$> tags
         Join tag tags -> D.folddoc (<>) $ layout <$> Array.intersperse tag tags
-        Wrap start end tag -> D.bracket start (layout tag) end -- TODO: encode text
+        Wrap start end tag -> D.bracket' (layout start) (layout tag) (layout end) -- TODO: encode text
         List bullet Empty items ->
             wrapS' "ul" ("list-style-type:" <> case bullet of
                 Asterisk -> "bullet"

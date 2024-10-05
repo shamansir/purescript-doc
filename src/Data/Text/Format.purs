@@ -102,7 +102,7 @@ data Tag
     | Split Tag Tag
     | Pair Tag Tag
     | Join Tag (Array Tag)
-    | Wrap String String Tag
+    | Wrap Tag Tag Tag
     | Para (Array Tag)
     | Nest Indent (Array Tag)
     | Newline
@@ -161,6 +161,26 @@ bold :: Tag -> Tag
 bold = Format Bold
 
 
+em :: Tag -> Tag
+em = Format Emphasis
+
+
+i :: Tag -> Tag
+i = Format Emphasis
+
+
+u :: Tag -> Tag
+u = Format Underline
+
+
+thru :: Tag -> Tag
+thru = Format Strikethrough
+
+
+mono :: Tag -> Tag
+mono = Format Monospaced
+
+
 underlines :: String -> Tag
 underlines = underline <<< plain
 
@@ -191,6 +211,43 @@ invisibles = invisible <<< plain
 
 invisible :: Tag -> Tag
 invisible = Format Invisible
+
+
+wrap :: Tag -> Tag -> Tag -> Tag
+wrap = Wrap
+
+
+wraps :: String -> String -> Tag -> Tag
+wraps l r = Wrap (Plain l) (Plain r)
+
+
+url :: String -> Url
+url = Url
+
+
+link :: Url -> Tag -> Tag
+link = Format <<< Link
+
+
+img :: Url -> Tag -> Tag
+img = Format <<< Image
+
+
+ftn :: String -> Tag -> Tag
+ftn = Format <<< Footnote <<< FootnoteId <<< E.Right
+
+
+ftni :: Int -> Tag -> Tag
+ftni = Format <<< Footnote <<< FootnoteId <<< E.Left
+
+
+to_ftn :: String -> Tag -> Tag
+to_ftn = Format <<< LinkTo <<< FootnoteId <<< E.Right
+
+
+to_ftni :: Int -> Tag -> Tag
+to_ftni = Format <<< LinkTo <<< FootnoteId <<< E.Left
+
 
 
 h :: Int -> Tag -> Tag
@@ -233,14 +290,6 @@ f :: Format -> Tag -> Tag
 f = Format
 
 
-list :: Tag -> Array Tag -> Tag
-list = List Dash
-
-
-listb :: Bullet -> Tag -> Array Tag -> Tag
-listb = List
-
-
 none = None :: Bullet
 disk = Disc :: Bullet
 asterisk = Asterisk :: Bullet
@@ -249,6 +298,27 @@ num = Num :: Bullet
 alpha = Alpha :: Bullet
 circle = Circle :: Bullet
 nalpha = AlphaInv :: Bullet
+
+
+list :: Tag -> Array Tag -> Tag
+list = List Dash
+
+
+list_ :: Array Tag -> Tag
+list_ = List Dash Empty
+
+
+
+listb :: Bullet -> Tag -> Array Tag -> Tag
+listb = List
+
+
+listb_ :: Bullet -> Array Tag -> Tag
+listb_ bul = List bul Empty
+
+
+stack :: Array Tag -> Tag
+stack = Para -- nest 0?
 
 
 fgcs :: Color -> String -> Tag
@@ -398,7 +468,7 @@ instance Show Tag where
         Hr -> just "hr"
         Nest indent tags -> wraplistarg "nest" (show indent) $ show <$> tags
         Join tag tags -> wraplistarg "join" (show tag) $ show <$> tags
-        Wrap start end tag -> wraparg2 "wrap" start end $ show tag
+        Wrap start end tag -> wraparg2 "wrap" (show start) (show end) $ show tag
         List bullet tag tags -> wraplistarg2 "list" (show bullet) (show tag) $ show <$> tags
         DefList definitions -> wraplist "list" $ show <$> definitions
         Table headers rows -> wrap "table" $ (wrap "header" $ String.joinWith "," $ show <$> headers) <> "|" <> (wraplist "row" $ wraplist "column" <$> map show <$> rows)

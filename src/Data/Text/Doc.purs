@@ -133,7 +133,9 @@ space = Text " "
 mark :: String -> Doc -> Doc
 mark s doc = Text s <> space <> doc
 bracket :: String -> Doc -> String -> Doc
-bracket l x r = Text l <> x <> Text r
+bracket l x r = bracket' (Text l) x (Text r)
+bracket' :: Doc -> Doc -> Doc -> Doc
+bracket' l x r = l <> x <> r
 wbracket :: String -> String -> Doc -> Doc
 wbracket l = flip $ bracket l
 wrap :: String -> Doc -> Doc

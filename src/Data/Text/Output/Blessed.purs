@@ -103,7 +103,7 @@ instance Renderer Blessed where
         Para tags -> D.stack $ layout <$> tags
         Nest i tags -> D.nest' (NT.unwrap i) $ layout <$> tags
         Join tag tags -> D.folddoc (<>) $ layout <$> Array.intersperse tag tags
-        Wrap start end tag -> D.bracket start (layout tag) end
+        Wrap start end tag -> D.bracket' (layout start) (layout tag) (layout end) -- TODO: encode text
         List bullet Empty items ->
             D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
         List bullet start items ->
