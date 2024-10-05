@@ -30,6 +30,10 @@ data Support
     | None -- not even renders
 
 
+class ToDoc a where
+    toDoc :: a -> Doc
+
+
 class Renderer (x :: OutputKind) where
     -- options :: Proxy x -> Options
     supported :: Proxy x -> Tag -> Support

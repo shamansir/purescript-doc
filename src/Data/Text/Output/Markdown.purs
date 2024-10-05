@@ -12,7 +12,7 @@ import Data.Tuple.Nested ((/\))
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
 
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), bulletPrefix)
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), bulletPrefix)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -90,6 +90,8 @@ instance Renderer Markdown where
                 [ layout start
                 , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
+        DefList definitions ->
+            D.stack $ def <$> definitions
         Table headers rows ->
             wrap' "table"
                 $ (wrap' "thead" $ D.stack $ wrap "th" <$> headers)
@@ -102,3 +104,4 @@ instance Renderer Markdown where
             wrapAttr htmlTag attrName atrrVal = wrapAttr' htmlTag attrName atrrVal <<< layout
             wrapAttr' htmlTag attrName atrrVal content = D.bracket "<" (D.text htmlTag <> D.space <> D.text (attrName <> "=") <> D.wrap "\"" (D.text atrrVal)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
             wrapS htmlTag = wrapAttr htmlTag "style"
+            def (TAndD (Term term /\ Definition def)) = layout term <> D.break <> (D.mark ": " $ layout def)

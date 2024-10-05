@@ -22,6 +22,10 @@ import Data.Text.Format.Org.Types (OrgFile(..), OrgDoc(..))
 import Data.Text.Format.Org.Types as Org
 import Data.Text.Format.Org.Keywords as Keywords
 
+import Data.Text.Output (class ToDoc)
+
+
+
 
 newtype Deep = Deep Int
 
@@ -38,6 +42,10 @@ data DrawerMode
 
 layout :: OrgFile -> Doc
 layout = layoutWith defaultRO
+
+
+{- instance ToDoc OrgFile where
+    toDoc = layout -}
 
 
 layoutWith :: RO -> OrgFile -> Doc

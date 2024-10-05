@@ -10,7 +10,8 @@ import Data.Array (intersperse) as Array
 import Data.Newtype (unwrap)
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Url(..), Level(..), Anchor(..), Bullet(..), FootnoteId(..), ProgrammingLanguage(..))
+import Data.Tuple.Nested ((/\))
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..))
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -57,7 +58,8 @@ instance Renderer Html where
         Nest _ _ -> S.Full
         Join _ _ -> S.Full
         Wrap _ _ _ -> S.Full
-        List _ _ _ -> S.Text
+        List _ _ _ -> S.Full
+        DefList _ -> S.Full
         Table _ _ -> S.None
         Hr -> S.Text
 
@@ -122,6 +124,8 @@ instance Renderer Html where
         List bullet start items ->
             wrapAttr "label" "for" "" start
             <> layout (List bullet Empty items)
+        DefList definitions ->
+            wrap' "dl" $ D.stack $ def <$> definitions
         Table headers rows ->
             wrap' "table"
                 $ (wrap' "thead" $ D.stack $ wrap "th" <$> headers)
@@ -137,6 +141,8 @@ instance Renderer Html where
             wrapS htmlTag = wrapAttr htmlTag "style"
             wrapS' htmlTag = wrapAttr' htmlTag "style"
             wrapE htmlTag = D.bracket "<" (D.text htmlTag) "/>"
+            def (TAndD (Term term /\ Definition def)) = wrap' "dt" (layout term) <> D.break <> wrap' "dd" (layout def)
+
 
 
 singleLine :: Tag -> String

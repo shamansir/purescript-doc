@@ -3,19 +3,14 @@ module Data.Text.Format where
 import Prelude
 
 import Color (Color)
-import Color as Color
 
 import Data.Array (singleton)
-import Data.Date (Date)
-import Data.DateTime (DateTime)
 import Data.Maybe (Maybe(..))
 import Data.Either (Either)
 import Data.Either (Either(..)) as E
 import Data.String (joinWith) as String
-import Data.Time (Time)
-import Data.Tuple (uncurry)
 import Data.Tuple.Nested ((/\), type (/\))
-import Data.Newtype (class Newtype, wrap, unwrap)
+import Data.Newtype (class Newtype)
 
 newtype Indent = Indent Int
 newtype Level = Level Int
@@ -25,6 +20,7 @@ newtype ProgrammingLanguage = ProgrammingLanguage String
 newtype Url = Url String
 newtype Term = Term Tag
 newtype Definition = Definition Tag
+newtype TermAndDefinition = TAndD (Term /\ Definition)
 
 
 derive instance Newtype Indent _
@@ -35,6 +31,7 @@ derive instance Newtype ProgrammingLanguage _
 derive instance Newtype Url _
 derive instance Newtype Term _
 derive instance Newtype Definition _
+derive instance Newtype TermAndDefinition _
 
 
 derive newtype instance Show Indent
@@ -42,6 +39,8 @@ derive newtype instance Show Level
 derive newtype instance Show FootnoteId
 derive newtype instance Show Anchor
 derive newtype instance Show ProgrammingLanguage
+derive newtype instance Show Term
+derive newtype instance Show Definition
 
 
 
@@ -108,6 +107,7 @@ data Tag
     | Nest Indent (Array Tag)
     | Newline
     | List Bullet Tag (Array Tag) -- The root `Tag`` is optional (if `Empty`) header of the list
+    | DefList (Array TermAndDefinition)
     -- | Table (Array (Tag /\ Array Tag))
     | Table (Array Tag) (Array (Array Tag))
     | Hr
@@ -191,6 +191,64 @@ invisibles = invisible <<< plain
 
 invisible :: Tag -> Tag
 invisible = Format Invisible
+
+
+h :: Int -> Tag -> Tag
+h lvl = Format $ Header (Level lvl) Nothing
+
+
+h' :: Int -> String -> Tag -> Tag
+h' lvl = Format <<< Header (Level lvl) <<< Just <<< Anchor
+
+
+h1 = h 1 :: Tag -> Tag
+h2 = h 2 :: Tag -> Tag
+h3 = h 3 :: Tag -> Tag
+h4 = h 4 :: Tag -> Tag
+h5 = h 5 :: Tag -> Tag
+h6 = h 6 :: Tag -> Tag
+
+
+h1' = h' 1 :: String -> Tag -> Tag
+h2' = h' 2 :: String -> Tag -> Tag
+h3' = h' 3 :: String -> Tag -> Tag
+h4' = h' 4 :: String -> Tag -> Tag
+h5' = h' 5 :: String -> Tag -> Tag
+h6' = h' 6 :: String -> Tag -> Tag
+
+
+define :: String -> Tag -> Tag
+define = Format <<< Define <<< Term <<< Plain
+
+
+dt :: Tag -> Tag -> TermAndDefinition
+dt term def = TAndD $ Term term /\ Definition def
+
+
+dl :: Array TermAndDefinition -> Tag
+dl = DefList
+
+
+f :: Format -> Tag -> Tag
+f = Format
+
+
+list :: Tag -> Array Tag -> Tag
+list = List Dash
+
+
+listb :: Bullet -> Tag -> Array Tag -> Tag
+listb = List
+
+
+none = None :: Bullet
+disk = Disc :: Bullet
+asterisk = Asterisk :: Bullet
+dash = Dash :: Bullet
+num = Num :: Bullet
+alpha = Alpha :: Bullet
+circle = Circle :: Bullet
+nalpha = AlphaInv :: Bullet
 
 
 fgcs :: Color -> String -> Tag
@@ -342,6 +400,7 @@ instance Show Tag where
         Join tag tags -> wraplistarg "join" (show tag) $ show <$> tags
         Wrap start end tag -> wraparg2 "wrap" start end $ show tag
         List bullet tag tags -> wraplistarg2 "list" (show bullet) (show tag) $ show <$> tags
+        DefList definitions -> wraplist "list" $ show <$> definitions
         Table headers rows -> wrap "table" $ (wrap "header" $ String.joinWith "," $ show <$> headers) <> "|" <> (wraplist "row" $ wraplist "column" <$> map show <$> rows)
         where
             just title = "(" <> title <> ")"
@@ -408,3 +467,7 @@ instance Show Format where
             "bg(" <> case ecolor of
                     E.Left colorStr -> show colorStr
                     E.Right color -> show color <> ")"
+
+
+instance Show TermAndDefinition where
+    show (TAndD (Term term /\ Definition def)) = "(" <> show term <> " :: " <> show def <> ")"

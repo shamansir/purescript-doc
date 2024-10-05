@@ -12,7 +12,7 @@ import Data.Tuple.Nested ((/\))
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
 
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), bulletPrefix)
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), TermAndDefinition(..), Bullet(..), bulletPrefix)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -87,6 +87,8 @@ instance Renderer Org where
                 [ layout start
                 , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
+        DefList definitions ->
+            D.stack $ def <$> definitions
         Table headers rows ->
             D.nest' 0 $
                 [ D.wrap "|" $ D.joinWith (D.text "|") $ layout <$> headers
@@ -95,3 +97,4 @@ instance Renderer Org where
         Hr -> D.text "---------"
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
+            def (TAndD (Term term /\ Definition def)) = D.mark (bulletPrefix 0 Dash) $ layout term <> D.text " :: " <> layout def

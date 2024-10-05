@@ -210,11 +210,5 @@ instance Show Doc where
             "<para(" <> (String.joinWith "," $ show <$> docs) <> ")>"
         Pair docA docB ->
             "<concat(" <> show docA <> "," <> show docB <> ")>"
-        -- Marker str doc ->
-        --     "<marker(" <> show str <> "," <> show doc <> ")>"
-        -- Join sep docs ->
-        --     "<join(" <> show sep <> ",(" <> (String.joinWith "," $ show <$> docs) <> "))>"
-        -- Wrap { start, end } doc ->
-        --     "<wrap(" <> show start <> "," <> show end <> "," <> show doc <> ")>"
         Nest nextIndent doc ->
             "<nest(" <> show nextIndent <> "," <> show doc <> ")>"

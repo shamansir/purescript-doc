@@ -14,7 +14,7 @@ import Data.Either (Either(..)) as E
 import Data.Tuple (curry, uncurry)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String (joinWith) as String
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Url(..), bulletPrefix)
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), Bullet(..), bulletPrefix)
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (Support(..), perform) as S
@@ -69,6 +69,7 @@ instance Renderer Blessed where
         Join _ _ -> S.Full
         Wrap _ _ _ -> S.Full
         List _ _ _ -> S.Text
+        DefList _ -> S.Text
         Table _ _ -> S.None
         Hr -> S.Text
 
@@ -110,6 +111,8 @@ instance Renderer Blessed where
                 [ layout start
                 , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
+        DefList items ->
+            D.stack $ def <$> items
         Table headers rows ->
             D.nest' 0 $
                 [ D.joinWith (D.text "|") $ layout <$> headers
@@ -120,6 +123,7 @@ instance Renderer Blessed where
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout tag <> D.bracket "{/" (D.text cmd) "}"
+            def (TAndD (Term term /\ Definition def)) = layout term <> D.text " :: " <> layout def
 
 
 singleLine :: Tag -> String
