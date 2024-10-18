@@ -12,7 +12,7 @@ import Data.Tuple.Nested ((/\))
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
 
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), bulletPrefix)
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), ImageParams(..), ImageSide(..), bulletPrefix)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -70,7 +70,12 @@ instance Renderer Markdown where
                 LinkTo (FootnoteId (E.Left ftn)) -> layout tag <> D.space <> D.bracket "[^" (D.text $ show ftn) "]"
                 LinkTo (FootnoteId (E.Right ftn)) -> layout tag <> D.space <> D.bracket "[^" (D.text ftn) "]"
                 Link (Url url) -> D.bracket "[" (layout tag) "]" <> D.bracket "(" (D.text url) ")"
-                Image (Url url) -> D.bracket "![" (layout tag) "]" <> D.bracket "(" (D.text url) ")"
+                Image (ImageParams params) (Url url) ->
+                    case params.width /\ params.height of
+                        Auto /\ Auto -> D.bracket "![" (layout tag) "]" <> D.bracket "(" (D.text url) ")"
+                        Px wpx /\ Px hpx -> wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ show hpx, "alt" /\ show tag ] tag
+                        Px wpx /\ Auto -> wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "alt" /\ show tag ] tag
+                        Auto /\ Px hpx -> wrapAttrsE "img" [ "src" /\ url, "height" /\ show hpx, "alt" /\ show tag ] tag
                 Comment -> D.bracket "<!--" (layout tag) "-->"
                 Footnote (FootnoteId (E.Left ftn)) -> D.bracket "[^" (D.text $ show ftn) "]" <> D.text ":" <> D.space <> layout tag
                 Footnote (FootnoteId (E.Right ftn)) -> D.bracket "[^" (D.text ftn) "]" <> D.text ":" <> D.space <> layout tag
@@ -102,6 +107,10 @@ instance Renderer Markdown where
             wrap htmlTag = wrap' htmlTag <<< layout
             wrap' htmlTag content = D.bracket "<" (D.text htmlTag) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
             wrapAttr htmlTag attrName atrrVal = wrapAttr' htmlTag attrName atrrVal <<< layout
-            wrapAttr' htmlTag attrName atrrVal content = D.bracket "<" (D.text htmlTag <> D.space <> D.text (attrName <> "=") <> D.wrap "\"" (D.text atrrVal)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
+            wrapAttr' htmlTag attrName attrVal content = D.bracket "<" (D.text htmlTag <> D.space <> makeAttr (attrName /\ attrVal)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">" -- TODO: wrapAttrs Array.singleton
+            wrapAttrs htmlTag attrs = wrapAttrs' htmlTag attrs <<< layout
+            wrapAttrs' htmlTag attrs content = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
+            wrapAttrsE htmlTag attrs content = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) "/>" <> layout content
+            makeAttr (attrName /\ attrVal) = D.text (attrName <> "=") <> D.wrap "\"" (D.text attrVal)
             wrapS htmlTag = wrapAttr htmlTag "style"
             def (TAndD (Term term /\ Definition def)) = layout term <> D.break <> (D.mark ": " $ layout def)

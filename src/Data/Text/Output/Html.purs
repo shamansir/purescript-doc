@@ -11,7 +11,7 @@ import Data.Newtype (unwrap)
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
 import Data.Tuple.Nested ((/\))
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..))
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..), ImageParams(..), ImageSide(..))
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -47,7 +47,7 @@ instance Renderer Html where
                 Invisible -> S.Full
                 Define _ -> S.Text
                 Link _ -> S.Partly
-                Image _ -> S.Text
+                Image _ _ -> S.Full
                 LinkTo _ -> S.Partly
                 Comment -> S.Text
                 _ -> S.Text -- TODO
@@ -96,7 +96,12 @@ instance Renderer Html where
                 LinkTo (FootnoteId (E.Left ftn)) -> wrapAttr "a" "href" ("#" <> show ftn) tag
                 LinkTo (FootnoteId (E.Right ftn)) -> wrapAttr "a" "href" ("#" <> ftn) tag
                 Link (Url url) -> wrapAttr "a" "href" url tag
-                Image (Url url) -> wrapAttr "img" "src" url tag
+                Image (ImageParams params) (Url url) ->
+                    case params.width /\ params.height of
+                        Auto /\ Auto -> wrapAttrsE "img" [ "src" /\ url, "alt" /\ show tag ] tag
+                        Px wpx /\ Px hpx -> wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ show hpx, "alt" /\ show tag ] tag
+                        Px wpx /\ Auto -> wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "alt" /\ show tag ] tag
+                        Auto /\ Px hpx -> wrapAttrsE "img" [ "src" /\ url, "height" /\ show hpx, "alt" /\ show tag ] tag
                 Comment -> D.bracket "<!--" (layout tag) "-->"
                 Footnote (FootnoteId (E.Left ftn)) -> wrapAttr "a" "name" ("#" <> show ftn) tag
                 Footnote (FootnoteId (E.Right ftn)) -> wrapAttr "a" "name" ("#" <> ftn) tag
@@ -136,8 +141,12 @@ instance Renderer Html where
             ident n = wrapS "div" ("padding-left:" <> show n)
             wrap htmlTag = wrap' htmlTag <<< layout
             wrap' htmlTag content = D.bracket "<" (D.text htmlTag) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
-            wrapAttr htmlTag attrName atrrVal = wrapAttr' htmlTag attrName atrrVal <<< layout
-            wrapAttr' htmlTag attrName atrrVal content = D.bracket "<" (D.text htmlTag <> D.space <> D.text (attrName <> "=") <> D.wrap "\"" (D.text atrrVal)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
+            wrapAttr htmlTag attrName attrVal = wrapAttr' htmlTag attrName attrVal <<< layout
+            wrapAttr' htmlTag attrName attrVal content = D.bracket "<" (D.text htmlTag <> D.space <> makeAttr (attrName /\ attrVal)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">" -- TODO: wrapAttrs Array.singleton
+            wrapAttrs htmlTag attrs = wrapAttrs' htmlTag attrs <<< layout
+            wrapAttrs' htmlTag attrs content = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
+            makeAttr (attrName /\ attrVal) = D.text (attrName <> "=") <> D.wrap "\"" (D.text attrVal)
+            wrapAttrsE htmlTag attrs content = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) "/>" <> layout content
             wrapS htmlTag = wrapAttr htmlTag "style"
             wrapS' htmlTag = wrapAttr' htmlTag "style"
             wrapE htmlTag = D.bracket "<" (D.text htmlTag) "/>"

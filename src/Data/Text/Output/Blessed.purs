@@ -57,7 +57,7 @@ instance Renderer Blessed where
                 Invisible -> S.Full
                 Define _ -> S.Text
                 Link _ -> S.Partly
-                Image _ -> S.Text
+                Image _ _ -> S.Text
                 LinkTo _ -> S.Partly
                 Comment -> S.Text
                 _ -> S.Text -- TODO
@@ -92,7 +92,7 @@ instance Renderer Blessed where
                 Define (Term dt) -> let dd = tag in D.break <> layout dt <+> D.text "::" <+> layout dd <> D.break
                 LinkTo ftn -> layout tag <+> D.bracket "[" (D.text $ show $ NT.unwrap ftn) "]"
                 Link (Url url) -> let title = tag in layout title <+> D.bracket "(" (D.text url) ")"
-                Image (Url url) -> let title = tag in layout title <+> D.bracket "(" (D.text url) ")"
+                Image _ (Url url) -> let title = tag in layout title <+> D.bracket "(" (D.text url) ")"
                 Comment -> D.break <> layout tag
                 _ -> layout tag -- other format's are not supported
         Split tagA tagB -> layout tagA <> D.text "{|}" <> layout tagB

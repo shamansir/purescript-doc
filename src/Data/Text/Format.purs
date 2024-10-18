@@ -12,6 +12,7 @@ import Data.String (joinWith) as String
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.Newtype (class Newtype)
 
+
 newtype Indent = Indent Int
 newtype Level = Level Int
 newtype FootnoteId = FootnoteId (Either Int String)
@@ -21,6 +22,11 @@ newtype Url = Url String
 newtype Term = Term Tag
 newtype Definition = Definition Tag
 newtype TermAndDefinition = TAndD (Term /\ Definition)
+newtype ImageParams =
+        ImageParams
+            { width :: ImageSide
+            , height :: ImageSide
+            }
 
 
 derive instance Newtype Indent _
@@ -32,6 +38,7 @@ derive instance Newtype Url _
 derive instance Newtype Term _
 derive instance Newtype Definition _
 derive instance Newtype TermAndDefinition _
+derive instance Newtype ImageParams _
 
 
 derive newtype instance Show Indent
@@ -64,7 +71,7 @@ data Format
     | Quote
     | Verbatim
     | Link Url
-    | Image Url
+    | Image ImageParams Url
     | Footnote FootnoteId
     | LinkTo FootnoteId
     | Code ProgrammingLanguage
@@ -114,6 +121,10 @@ data Tag
 
 -- TODO: binary operators for tags
 -- TODO: empty tag
+
+data ImageSide -- FIXME: reuse come other type
+    = Auto
+    | Px Int
 
 
 instance Semigroup Tag where
@@ -230,7 +241,15 @@ link = Format <<< Link
 
 
 img :: Url -> Tag -> Tag
-img = Format <<< Image
+img = imgp $ ImageParams { width : Auto, height : Auto }
+
+
+imgp :: ImageParams -> Url -> Tag -> Tag
+imgp par = Format <<< Image par
+
+
+sized :: { w :: Int, h :: Int } -> ImageParams
+sized { w, h } = ImageParams { width : Px w, height : Px h }
 
 
 ftn :: String -> Tag -> Tag
@@ -454,7 +473,7 @@ instance Show Tag where
                     E.Left ftnIntId -> wraptag2 "link" (show tag) $ wrap "ftn#" $ show ftnIntId
                     E.Right ftnStrId -> wraptag2 "link" (show tag) $ wrap "ftn" $ ftnStrId
             Define (Term term) -> let definition = tag in wraptag2 "def" (show term) $ show definition
-            Image (Url url) -> let title = tag in wraparg "image" (show title) $ show url
+            Image imgParams (Url url) -> let title = tag in wraparg2 "image" (show title) (show imgParams) $ show url
             Comment -> wrap "comment" $ show tag
             Footnote (FootnoteId ftnId) ->
                 case ftnId of
@@ -523,7 +542,7 @@ instance Show Format where
                                             Just anchor -> "{" <> show anchor <> "}"
                                             Nothing -> ""
         Link (Url url) -> "link:" <> show url
-        Image (Url url) -> "image:" <> show url
+        Image _ (Url url) -> "image:" <> show url
         LinkTo (FootnoteId ftnId) -> case ftnId of
             E.Left intId -> "footnote:#" <> show intId
             E.Right strId -> "footnote:" <> strId
@@ -541,3 +560,7 @@ instance Show Format where
 
 instance Show TermAndDefinition where
     show (TAndD (Term term /\ Definition def)) = "(" <> show term <> " :: " <> show def <> ")"
+
+
+instance Show ImageParams where
+    show (ImageParams rec) = "{}"
