@@ -14,7 +14,7 @@ import Data.Either (Either(..)) as E
 import Data.Tuple (curry, uncurry)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String (joinWith) as String
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), Bullet(..), bulletPrefix)
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), Bullet(..), ImageParams(..), bulletPrefix)
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (Support(..), perform) as S
@@ -28,6 +28,7 @@ import Data.Time (Time(..)) as Tm
 import Data.Time.Component (Hour(..), Minute(..), Millisecond(..)) as Tm
 import Data.Time as Time
 import Data.Formatter.DateTime as FDT
+import Data.Newtype (unwrap)
 
 foreign import data Blessed :: OutputKind
 
@@ -57,7 +58,7 @@ instance Renderer Blessed where
                 Invisible -> S.Full
                 Define _ -> S.Text
                 Link _ -> S.Partly
-                Image _ _ -> S.Text
+                InlineImage _ _ -> S.Text
                 LinkTo _ -> S.Partly
                 Comment -> S.Text
                 _ -> S.Text -- TODO
@@ -69,6 +70,7 @@ instance Renderer Blessed where
         Join _ _ -> S.Full
         Wrap _ _ _ -> S.Full
         List _ _ _ -> S.Text
+        Image _ _ -> S.Text
         DefList _ -> S.Text
         Table _ _ -> S.None
         Hr -> S.Text
@@ -92,7 +94,7 @@ instance Renderer Blessed where
                 Define (Term dt) -> let dd = tag in D.break <> layout dt <+> D.text "::" <+> layout dd <> D.break
                 LinkTo ftn -> layout tag <+> D.bracket "[" (D.text $ show $ NT.unwrap ftn) "]"
                 Link (Url url) -> let title = tag in layout title <+> D.bracket "(" (D.text url) ")"
-                Image _ (Url url) -> let title = tag in layout title <+> D.bracket "(" (D.text url) ")"
+                InlineImage (ImageParams { caption }) (Url url) -> let title = tag in layout title <+> D.bracket "(" (ifnec caption <> D.text url) ")"
                 Comment -> D.break <> layout tag
                 _ -> layout tag -- other format's are not supported
         Split tagA tagB -> layout tagA <> D.text "{|}" <> layout tagB
@@ -104,6 +106,11 @@ instance Renderer Blessed where
         Nest i tags -> D.nest' (NT.unwrap i) $ layout <$> tags
         Join tag tags -> D.folddoc (<>) $ layout <$> Array.intersperse tag tags
         Wrap start end tag -> D.bracket' (layout start) (layout tag) (layout end) -- TODO: encode text
+        Image (ImageParams { caption }) (Url url) -> D.nest 0 $
+            if unwrap caption == "" then
+                D.bracket "[[" (D.text url) "]]"
+            else
+                D.bracket "[[" (D.text url) "]]" <> D.bracket "(" (D.text $ unwrap caption) ")"
         List bullet Empty items ->
             D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
         List bullet start items ->
@@ -124,6 +131,7 @@ instance Renderer Blessed where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout tag <> D.bracket "{/" (D.text cmd) "}"
             def (TAndD (Term term /\ Definition def)) = layout term <> D.text " :: " <> layout def
+            ifnec caption = if unwrap caption == "" then D.text "" else (D.text $ unwrap caption) <> D.text ","
 
 
 singleLine :: Tag -> String

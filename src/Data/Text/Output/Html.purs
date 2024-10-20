@@ -47,7 +47,7 @@ instance Renderer Html where
                 Invisible -> S.Full
                 Define _ -> S.Text
                 Link _ -> S.Partly
-                Image _ _ -> S.Full
+                InlineImage _ _ -> S.Partly
                 LinkTo _ -> S.Partly
                 Comment -> S.Text
                 _ -> S.Text -- TODO
@@ -60,6 +60,7 @@ instance Renderer Html where
         Wrap _ _ _ -> S.Full
         List _ _ _ -> S.Full
         DefList _ -> S.Full
+        Image _ _ -> S.Full
         Table _ _ -> S.None
         Hr -> S.Text
 
@@ -96,12 +97,12 @@ instance Renderer Html where
                 LinkTo (FootnoteId (E.Left ftn)) -> wrapAttr "a" "href" ("#" <> show ftn) tag
                 LinkTo (FootnoteId (E.Right ftn)) -> wrapAttr "a" "href" ("#" <> ftn) tag
                 Link (Url url) -> wrapAttr "a" "href" url tag
-                Image (ImageParams params) (Url url) ->
+                InlineImage (ImageParams params) (Url url) ->
                     case params.width /\ params.height of
-                        Auto /\ Auto -> wrapAttrsE "img" [ "src" /\ url, "alt" /\ show tag ] tag
-                        Px wpx /\ Px hpx -> wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ show hpx, "alt" /\ show tag ] tag
-                        Px wpx /\ Auto -> wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "alt" /\ show tag ] tag
-                        Auto /\ Px hpx -> wrapAttrsE "img" [ "src" /\ url, "height" /\ show hpx, "alt" /\ show tag ] tag
+                        Auto /\ Auto ->     wrapAttrsE "img" [ "src" /\ url, "alt" /\ unwrap params.caption, inlineBlockStyle ] tag
+                        Px wpx /\ Px hpx -> wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ show hpx, "alt" /\ unwrap params.caption, inlineBlockStyle ] tag
+                        Px wpx /\ Auto ->   wrapAttrsE "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ "auto", "alt" /\ unwrap params.caption, inlineBlockStyle ] tag
+                        Auto /\ Px hpx ->   wrapAttrsE "img" [ "src" /\ url, "width" /\ "auto", "height" /\ show hpx, "alt" /\ unwrap params.caption, inlineBlockStyle ] tag
                 Comment -> D.bracket "<!--" (layout tag) "-->"
                 Footnote (FootnoteId (E.Left ftn)) -> wrapAttr "a" "name" ("#" <> show ftn) tag
                 Footnote (FootnoteId (E.Right ftn)) -> wrapAttr "a" "name" ("#" <> ftn) tag
@@ -126,6 +127,12 @@ instance Renderer Html where
                 Num -> "decimal"
                 None -> "none"
             ) $ D.stack $ wrap "li" <$> items
+        Image (ImageParams params) (Url url) ->
+            case params.width /\ params.height of
+                Auto /\ Auto ->     wrapAttrsE' "img" [ "src" /\ url, "alt" /\ unwrap params.caption ]
+                Px wpx /\ Px hpx -> wrapAttrsE' "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ show hpx, "alt" /\ unwrap params.caption ]
+                Px wpx /\ Auto ->   wrapAttrsE' "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ "auto", "alt" /\ unwrap params.caption ]
+                Auto /\ Px hpx ->   wrapAttrsE' "img" [ "src" /\ url, "width" /\ "auto", "height" /\ show hpx, "alt" /\ unwrap params.caption ]
         List bullet start items ->
             wrapAttr "label" "for" "" start
             <> layout (List bullet Empty items)
@@ -139,6 +146,7 @@ instance Renderer Html where
         where
             -- b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             ident n = wrapS "div" ("padding-left:" <> show n)
+            inlineBlockStyle = "style" /\ "display:inline-block"
             wrap htmlTag = wrap' htmlTag <<< layout
             wrap' htmlTag content = D.bracket "<" (D.text htmlTag) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
             wrapAttr htmlTag attrName attrVal = wrapAttr' htmlTag attrName attrVal <<< layout
@@ -146,7 +154,8 @@ instance Renderer Html where
             wrapAttrs htmlTag attrs = wrapAttrs' htmlTag attrs <<< layout
             wrapAttrs' htmlTag attrs content = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
             makeAttr (attrName /\ attrVal) = D.text (attrName <> "=") <> D.wrap "\"" (D.text attrVal)
-            wrapAttrsE htmlTag attrs content = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) "/>" <> layout content
+            wrapAttrsE htmlTag attrs content = wrapAttrsE' htmlTag attrs <> layout content
+            wrapAttrsE' htmlTag attrs = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) "/>"
             wrapS htmlTag = wrapAttr htmlTag "style"
             wrapS' htmlTag = wrapAttr' htmlTag "style"
             wrapE htmlTag = D.bracket "<" (D.text htmlTag) "/>"

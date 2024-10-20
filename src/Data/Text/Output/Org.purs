@@ -11,6 +11,7 @@ import Data.Tuple (uncurry)
 import Data.Tuple.Nested ((/\))
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
+import Data.Newtype (unwrap)
 
 import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), TermAndDefinition(..), Bullet(..), ImageParams(..), ImageSide(..), bulletPrefix)
 import Data.Text.Output (layout) as O
@@ -66,8 +67,8 @@ instance Renderer Org where
                 LinkTo (FootnoteId (E.Left ftn)) -> layout tag <> D.bracket "[^" (D.text $ show ftn) "]"
                 LinkTo (FootnoteId (E.Right ftn)) -> layout tag <> D.bracket "[^" (D.text ftn) "]"
                 Link (Url url) -> D.bracket "[" (D.bracket "[" (D.text url) "]" <> D.bracket "[" (layout tag) "]") "]"
-                Image (ImageParams params) (Url url) ->
-                    D.mark "#+CAPTION:" (layout tag) <> D.break <>
+                InlineImage (ImageParams params) (Url url) ->
+                    D.mark "#+CAPTION:" (D.text $ unwrap params.caption) <> D.break <>
                     (case params.width /\ params.height of
                         Auto /\ Auto -> D.nil
                         Px wpx /\ Px hpx ->
@@ -76,6 +77,7 @@ instance Renderer Org where
                         Px wpx /\ Auto -> (htmlattr "width" $ show wpx <> "px") <> D.break
                         Auto /\ Px hpx -> (htmlattr "height" $ show hpx <> "px") <> D.break)
                     <> D.bracket "[[" (D.text url) "]]"
+                    <> layout tag
                 Comment -> D.bracketbr "#+BEGIN_COMMENT" (layout tag) "#+END_COMMENT"
                 Footnote (FootnoteId (E.Left ftn)) -> D.bracket "[fn:" (D.text $ show ftn) "]" <> D.space <> layout tag
                 Footnote (FootnoteId (E.Right ftn)) -> D.bracket "[fn:" (D.text ftn) "]" <> D.space <> layout tag
@@ -89,6 +91,16 @@ instance Renderer Org where
         Nest (Indent i) tags -> D.nest' i $ layout <$> tags
         Join tag tags -> D.folddoc (<>) $ layout <$> Array.intersperse tag tags
         Wrap start end tag -> D.bracket' (layout start) (layout tag) (layout end) -- TODO: encode text
+        Image (ImageParams params) (Url url) ->
+            D.mark "#+CAPTION:" (D.text $ unwrap params.caption)  <> D.break <>
+            (case params.width /\ params.height of
+                Auto /\ Auto -> D.nil
+                Px wpx /\ Px hpx ->
+                    (htmlattr "width"  $ show wpx <> "px") <> D.break <>
+                    (htmlattr "height" $ show hpx <> "px") <> D.break
+                Px wpx /\ Auto -> (htmlattr "width" $ show wpx <> "px") <> D.break
+                Auto /\ Px hpx -> (htmlattr "height" $ show hpx <> "px") <> D.break)
+            <> D.bracket "[[" (D.text url) "]]"
         List bullet Empty items ->
             D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
         List bullet start items ->

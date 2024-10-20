@@ -22,10 +22,12 @@ newtype Url = Url String
 newtype Term = Term Tag
 newtype Definition = Definition Tag
 newtype TermAndDefinition = TAndD (Term /\ Definition)
+newtype Caption = Caption String
 newtype ImageParams =
         ImageParams
             { width :: ImageSide
             , height :: ImageSide
+            , caption :: Caption
             }
 
 
@@ -38,6 +40,7 @@ derive instance Newtype Url _
 derive instance Newtype Term _
 derive instance Newtype Definition _
 derive instance Newtype TermAndDefinition _
+derive instance Newtype Caption _
 derive instance Newtype ImageParams _
 
 
@@ -48,6 +51,7 @@ derive newtype instance Show Anchor
 derive newtype instance Show ProgrammingLanguage
 derive newtype instance Show Term
 derive newtype instance Show Definition
+derive newtype instance Show Caption
 
 
 
@@ -71,7 +75,7 @@ data Format
     | Quote
     | Verbatim
     | Link Url
-    | Image ImageParams Url
+    | InlineImage ImageParams Url
     | Footnote FootnoteId
     | LinkTo FootnoteId
     | Code ProgrammingLanguage
@@ -113,6 +117,7 @@ data Tag
     | Para (Array Tag)
     | Nest Indent (Array Tag)
     | Newline
+    | Image ImageParams Url
     | List Bullet Tag (Array Tag) -- The root `Tag`` is optional (if `Empty`) header of the list
     | DefList (Array TermAndDefinition)
     -- | Table (Array (Tag /\ Array Tag))
@@ -240,16 +245,48 @@ link :: Url -> Tag -> Tag
 link = Format <<< Link
 
 
-img :: Url -> Tag -> Tag
-img = imgp $ ImageParams { width : Auto, height : Auto }
+icaption :: String -> Caption
+icaption = Caption
 
 
-imgp :: ImageParams -> Url -> Tag -> Tag
-imgp par = Format <<< Image par
+auto_ip :: ImageParams
+auto_ip = ImageParams { width : Auto, height : Auto, caption : Caption "" }
+
+
+img :: Url -> Tag
+img = imgp auto_ip
+
+
+imgc :: Caption -> Url -> Tag
+imgc = imgp <<< cauto
+
+
+imgp :: ImageParams -> Url -> Tag
+imgp par = Image par
+
+
+iimg :: Url -> Tag -> Tag
+iimg = iimgp auto_ip
+
+
+iimgc :: Caption -> Url -> Tag -> Tag
+iimgc caption = iimgp $ ImageParams { width : Auto, height : Auto, caption  }
+
+
+iimgp :: ImageParams -> Url -> Tag -> Tag
+iimgp par = Format <<< InlineImage par
 
 
 sized :: { w :: Int, h :: Int } -> ImageParams
-sized { w, h } = ImageParams { width : Px w, height : Px h }
+sized = csized $ Caption ""
+
+
+csized :: Caption -> { w :: Int, h :: Int } -> ImageParams
+csized caption { w, h } = ImageParams { width : Px w, height : Px h, caption }
+
+
+cauto :: Caption -> ImageParams
+cauto caption = ImageParams { width : Auto, height : Auto, caption }
 
 
 ftn :: String -> Tag -> Tag
@@ -473,12 +510,12 @@ instance Show Tag where
                     E.Left ftnIntId -> wraptag2 "link" (show tag) $ wrap "ftn#" $ show ftnIntId
                     E.Right ftnStrId -> wraptag2 "link" (show tag) $ wrap "ftn" $ ftnStrId
             Define (Term term) -> let definition = tag in wraptag2 "def" (show term) $ show definition
-            Image imgParams (Url url) -> let title = tag in wraparg2 "image" (show title) (show imgParams) $ show url
             Comment -> wrap "comment" $ show tag
             Footnote (FootnoteId ftnId) ->
                 case ftnId of
                     E.Left ftnIntId -> wraparg "footnote" ("#" <> show ftnIntId) $ show tag
                     E.Right ftnStrId -> wraparg "footnote" ftnStrId $ show tag
+            InlineImage imgParams (Url url) -> let title = tag in wraparg2 "image" (show title) (show imgParams) $ show url
             _ -> wraparg "format" (show format) $ show tag
         Split tag1 tag2 -> wraptag2 "split" (show tag1) $ show tag2
         Pair tag1 tag2 -> wraptag2 "pair" (show tag1) $ show tag2
@@ -488,6 +525,7 @@ instance Show Tag where
         Nest indent tags -> wraplistarg "nest" (show indent) $ show <$> tags
         Join tag tags -> wraplistarg "join" (show tag) $ show <$> tags
         Wrap start end tag -> wraparg2 "wrap" (show start) (show end) $ show tag
+        Image imgParams (Url url) -> wraparg "image" (show imgParams) $ show url
         List bullet tag tags -> wraplistarg2 "list" (show bullet) (show tag) $ show <$> tags
         DefList definitions -> wraplist "list" $ show <$> definitions
         Table headers rows -> wrap "table" $ (wrap "header" $ String.joinWith "," $ show <$> headers) <> "|" <> (wraplist "row" $ wraplist "column" <$> map show <$> rows)
@@ -542,7 +580,7 @@ instance Show Format where
                                             Just anchor -> "{" <> show anchor <> "}"
                                             Nothing -> ""
         Link (Url url) -> "link:" <> show url
-        Image _ (Url url) -> "image:" <> show url
+        InlineImage _ (Url url) -> "inline-image:" <> show url
         LinkTo (FootnoteId ftnId) -> case ftnId of
             E.Left intId -> "footnote:#" <> show intId
             E.Right strId -> "footnote:" <> strId
@@ -562,5 +600,11 @@ instance Show TermAndDefinition where
     show (TAndD (Term term /\ Definition def)) = "(" <> show term <> " :: " <> show def <> ")"
 
 
+instance Show ImageSide where
+    show = case _ of
+        Auto -> "auto"
+        Px n -> show n <> "px"
+
+
 instance Show ImageParams where
-    show (ImageParams rec) = "{}"
+    show (ImageParams rec) = "{" <> show rec.width <> "x" <> show rec.height <> "," <> show rec.caption <> "}"
