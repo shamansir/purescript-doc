@@ -67,17 +67,7 @@ instance Renderer Org where
                 LinkTo (FootnoteId (E.Left ftn)) -> layout tag <> D.bracket "[^" (D.text $ show ftn) "]"
                 LinkTo (FootnoteId (E.Right ftn)) -> layout tag <> D.bracket "[^" (D.text ftn) "]"
                 Link (Url url) -> D.bracket "[" (D.bracket "[" (D.text url) "]" <> D.bracket "[" (layout tag) "]") "]"
-                InlineImage (ImageParams params) (Url url) ->
-                    D.mark "#+CAPTION:" (D.text $ unwrap params.caption) <> D.break <>
-                    (case params.width /\ params.height of
-                        Auto /\ Auto -> D.nil
-                        Px wpx /\ Px hpx ->
-                            (htmlattr "width"  $ show wpx <> "px") <> D.break <>
-                            (htmlattr "height" $ show hpx <> "px") <> D.break
-                        Px wpx /\ Auto -> (htmlattr "width" $ show wpx <> "px") <> D.break
-                        Auto /\ Px hpx -> (htmlattr "height" $ show hpx <> "px") <> D.break)
-                    <> D.bracket "[[" (D.text url) "]]"
-                    <> layout tag
+                InlineImage _ _ -> D.text "" -- layout tag
                 Comment -> D.bracketbr "#+BEGIN_COMMENT" (layout tag) "#+END_COMMENT"
                 Footnote (FootnoteId (E.Left ftn)) -> D.bracket "[fn:" (D.text $ show ftn) "]" <> D.space <> layout tag
                 Footnote (FootnoteId (E.Right ftn)) -> D.bracket "[fn:" (D.text ftn) "]" <> D.space <> layout tag
@@ -118,7 +108,7 @@ instance Renderer Org where
         Hr -> D.text "---------"
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
-            htmlattr attrName attrValue = D.mark "#+ATTR_HTML:" $ D.text attrName <> D.text "=" <> D.wrap "\"" (D.text attrValue)
+            htmlattr attrName attrValue = D.mark "#+ATTR_HTML:" $ D.text (":" <> attrName) <> D.space <> D.text attrValue
             orgattr attrName attrValue = D.mark "#+ATTR_ORG:" $ D.text ":" <> D.text attrName <> D.space <> attrValue
             latexattr attrName attrValue = D.mark "#+ATTR_LATEX:" $ D.text ":" <> D.text attrName <> D.space <> attrValue
             def (TAndD (Term term /\ Definition def)) = D.mark (bulletPrefix 0 Dash) $ layout term <> D.text " :: " <> layout def
