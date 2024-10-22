@@ -130,5 +130,5 @@ instance Renderer Markdown where
             wrapAttrsE' htmlTag attrs = D.bracket "<" (D.text htmlTag <> D.space <> D.joinWith D.space (makeAttr <$> attrs)) "/>"
             makeAttr (attrName /\ attrVal) = D.text (attrName <> "=") <> D.wrap "\"" (D.text attrVal)
             wrapS htmlTag = wrapAttr htmlTag "style"
-            def (TAndD (Term term /\ Definition def)) = layout term <> D.break <> (D.mark ": " $ layout def)
+            def (TAndD (Term term /\ Definition definition)) = layout term <> D.break <> (D.mark ": " $ layout definition)
             inlineBlockStyle = "style" /\ "display:inline-block"

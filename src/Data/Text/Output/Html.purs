@@ -166,7 +166,7 @@ instance Renderer Html where
             wrapS htmlTag = wrapAttr htmlTag "style"
             wrapS' htmlTag = wrapAttr' htmlTag "style"
             wrapE htmlTag = D.bracket "<" (D.text htmlTag) "/>"
-            def (TAndD (Term term /\ Definition def)) = wrap' "dt" (layout term) <> D.break <> wrap' "dd" (layout def)
+            def (TAndD (Term term /\ Definition definition)) = wrap' "dt" (layout term) <> D.break <> wrap' "dd" (layout definition)
 
 
 

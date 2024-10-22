@@ -68,7 +68,7 @@ data Align
 
 data Format
     = Bold
-    | Emphasis
+    | Emphasis -- TODO: Emphasis & Italic could be different i.e. in LaTeX
     | Underline
     | Highlight
     | Blink
