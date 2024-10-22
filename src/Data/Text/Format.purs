@@ -5,12 +5,14 @@ import Prelude
 import Color (Color)
 
 import Data.Array (singleton)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Either (Either)
 import Data.Either (Either(..)) as E
 import Data.String (joinWith) as String
+import Data.String.CodeUnits (singleton) as String
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.Newtype (class Newtype)
+import Data.Enum (fromEnum, toEnum)
 
 
 newtype Indent = Indent Int
@@ -487,9 +489,9 @@ bulletPrefix index = case _ of
     Asterisk -> "*"
     Dash -> "-"
     Circle -> "o" -- FIXME
-    Alpha -> "a." -- FIXME: TODO
-    AlphaInv -> "z." -- FIXME: TODO
-    Num -> "1" -- FIXME: TODO
+    Alpha ->    String.singleton (fromMaybe 'a' $ toEnum $ fromEnum 'a' + index) <> "."
+    AlphaInv -> String.singleton (fromMaybe 'z' $ toEnum $ fromEnum 'z' - index) <> "."
+    Num ->      String.singleton (fromMaybe '1' $ toEnum $ fromEnum '1' + index) <> "."
 
 
 {-
