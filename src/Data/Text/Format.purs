@@ -140,6 +140,10 @@ instance Semigroup Tag where
     append = Pair
 
 
+nil :: Tag
+nil = Empty
+
+
 s :: String -> Tag
 s = plain
 
@@ -460,6 +464,14 @@ of_ :: String -> QuoteOf
 of_ = QuoteOf
 
 
+space :: Tag
+space = plain " "
+
+
+blank :: Tag
+blank = nl <> nl
+
+
 class Formatter a where
     format :: a -> Tag
 
@@ -504,7 +516,6 @@ upper-greek	The marker is upper-greek
 upper-latin	The marker is upper-latin (A, B, C, D, E, etc.)
 upper-roman	The marker is upper-roman (I, II, III, IV, V, etc.)
 -}
-
 
 
 -- TODO: do syntax?
