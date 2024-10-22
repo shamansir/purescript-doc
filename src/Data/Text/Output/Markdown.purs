@@ -13,7 +13,11 @@ import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
 import Data.Newtype (unwrap)
 
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), ImageParams(..), ImageSide(..), bulletPrefix)
+import Data.Text.Format
+    ( Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
+    , Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..)
+    , Indent(..), ImageParams(..), ImageSide(..), QuoteOf(..)
+    , bulletPrefix)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -61,7 +65,12 @@ instance Renderer Markdown where
                 Verbatim -> D.wrapbr "```" $ layout tag
                 FixedWidth -> D.wrapbr "```" $ layout tag
                 Code (ProgrammingLanguage lang) -> D.bracketbr ("```" <> lang) (layout tag) "```"
-                Quote -> D.mark ">" $ layout tag -- TODO: split by \n and append `>` for every line
+                Quote mbAuthor ->
+                    (D.mark ">" $ layout tag) <>
+                        case mbAuthor of
+                            Just (QuoteOf author) -> D.space <> (D.mark "--" $ D.text author) -- D.break <> (D.mark ">" $ D.mark "--" $ D.text author)
+                            Nothing -> D.nil
+                     -- TODO: split by \n and append `>` for every line
                 Sub -> D.wrap "~" $ layout tag
                 Sup -> D.wrap "^" $ layout tag
                 Blink -> wrap "blink" tag
@@ -97,7 +106,7 @@ instance Renderer Markdown where
                 , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
         DefList definitions ->
-            D.stack $ def <$> definitions
+            D.joinWith (D.break <> D.break) $ def <$> definitions
         Table headers rows ->
             wrap' "table"
                 $ (wrap' "thead" $ D.stack $ wrap "th" <$> headers)

@@ -29,6 +29,7 @@ newtype ImageParams =
             , height :: ImageSide
             , caption :: Caption
             }
+newtype QuoteOf = QuoteOf String
 
 
 derive instance Newtype Indent _
@@ -42,6 +43,7 @@ derive instance Newtype Definition _
 derive instance Newtype TermAndDefinition _
 derive instance Newtype Caption _
 derive instance Newtype ImageParams _
+derive instance Newtype QuoteOf _
 
 
 derive newtype instance Show Indent
@@ -52,6 +54,7 @@ derive newtype instance Show ProgrammingLanguage
 derive newtype instance Show Term
 derive newtype instance Show Definition
 derive newtype instance Show Caption
+derive newtype instance Show QuoteOf
 
 
 
@@ -72,7 +75,7 @@ data Format
     | Strikethrough
     | Monospaced
     | Header Level (Maybe Anchor)
-    | Quote
+    | Quote (Maybe QuoteOf)
     | Verbatim
     | Link Url
     | InlineImage ImageParams Url
@@ -445,6 +448,18 @@ table :: Array (Array Tag) -> Tag
 table = tableh []
 
 
+quote :: Tag -> Tag
+quote = Format $ Quote Nothing
+
+
+quote_by :: QuoteOf -> Tag -> Tag
+quote_by = Format <<< Quote <<< Just
+
+
+of_ :: String -> QuoteOf
+of_ = QuoteOf
+
+
 class Formatter a where
     format :: a -> Tag
 
@@ -570,7 +585,9 @@ instance Show Format where
         Strikethrough -> "striked"
         Monospaced -> "mono"
         FixedWidth -> "fixed"
-        Quote -> "quote"
+        Quote mbAuthor -> "quote" <> case mbAuthor of
+            Just (QuoteOf author) -> "(" <> author <> ")"
+            Nothing -> ""
         Sub -> "sub"
         Sup -> "sup"
         Verbatim -> "verbatim"

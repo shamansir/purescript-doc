@@ -11,7 +11,11 @@ import Data.Newtype (unwrap)
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
 import Data.Tuple.Nested ((/\))
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..), ImageParams(..), ImageSide(..))
+import Data.Text.Format
+    ( Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
+    , Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..)
+    , ImageParams(..), ImageSide(..), QuoteOf(..)
+    )
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -87,7 +91,10 @@ instance Renderer Html where
                 FixedWidth -> wrap "code" tag
                 Highlight -> wrap "mark" tag
                 Code (ProgrammingLanguage lang) -> wrapAttr "code" "lang" lang tag
-                Quote -> wrap "qoute" tag
+                Quote mbAuthor ->
+                    case mbAuthor of
+                        Just (QuoteOf author) -> wrapAttr "quote" "cite" author tag
+                        Nothing -> wrap "qoute" tag
                 Sub -> wrap "sub" tag
                 Sup -> wrap "sup" tag
                 Blink -> wrap "blink" tag

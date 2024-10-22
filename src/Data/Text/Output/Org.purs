@@ -3,22 +3,24 @@ module Data.Text.Output.Org where
 import Prelude
 
 import Color as Color
-
-import Type.Proxy (Proxy(..))
-
 import Data.Array (length, replicate, intersperse, mapWithIndex) as Array
-import Data.Tuple (uncurry)
-import Data.Tuple.Nested ((/\))
-import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), TermAndDefinition(..), Bullet(..), ImageParams(..), ImageSide(..), bulletPrefix)
-import Data.Text.Output (layout) as O
-import Data.Text.Output (OutputKind, class Renderer, Support)
-import Data.Text.Output (Support(..)) as S
 import Data.Text.Doc (Doc)
 import Data.Text.Doc as D
+import Data.Text.Format
+    ( Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), Level(..), Anchor(..)
+    , FootnoteId(..), ProgrammingLanguage(..), Indent(..), TermAndDefinition(..), Bullet(..)
+    , ImageParams(..), ImageSide(..), QuoteOf(..)
+    , bulletPrefix
+    )
+import Data.Text.Output (OutputKind, class Renderer, Support)
+import Data.Text.Output (Support(..)) as S
+import Data.Text.Output (layout) as O
+import Data.Tuple (uncurry)
+import Data.Tuple.Nested ((/\))
+import Type.Proxy (Proxy(..))
 
 
 foreign import data Org :: OutputKind
@@ -57,7 +59,13 @@ instance Renderer Org where
                 Verbatim -> D.wrap "=" $ layout tag
                 FixedWidth -> D.wrapbr "~" $ layout tag
                 Code (ProgrammingLanguage lang) -> D.bracketbr ("#+BEGIN_SRC " <> lang) (layout tag) "#+END_SRC"
-                Quote -> D.bracketbr "#+BEGIN_QUOTE" (layout tag) "#+END_QUOTE"
+                Quote mbAuthor ->
+                    D.bracketbr "#+BEGIN_QUOTE"
+                        (layout tag <> case mbAuthor of
+                            Just (QuoteOf author) -> D.text " -- " <> D.text author
+                            Nothing -> D.nil
+                        )
+                    "#+END_QUOTE"
                 Sub -> D.bracket "^_" (layout tag) "}"
                 Sup -> D.bracket "^{" (layout tag) "}"
                 Blink -> layout tag
