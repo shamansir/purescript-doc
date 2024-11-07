@@ -123,7 +123,7 @@ instance Renderer LaTeX where
                     D.nest' 1 $ uncurry latexListItem <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
         DefList definitions ->
-            D.stack $ def <$> definitions
+            latexBeginEnd' "itemize" $ D.stack $ def <$> definitions
         Table headers rows ->
             -- https://www.overleaf.com/learn/latex/Tables
             -- FIXME: implement

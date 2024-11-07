@@ -3,16 +3,17 @@ module Data.Text.Format where
 import Prelude
 
 import Color (Color)
-
 import Data.Array (singleton)
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Either (Either)
 import Data.Either (Either(..)) as E
+import Data.Either (Either)
+import Data.Bounded (top, bottom)
+import Data.Enum (class Enum, fromEnum, toEnum, pred, succ)
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (class Newtype)
 import Data.String (joinWith) as String
 import Data.String.CodeUnits (singleton) as String
+import Data.Text.Format.Org.Construct (tag)
 import Data.Tuple.Nested ((/\), type (/\))
-import Data.Newtype (class Newtype)
-import Data.Enum (fromEnum, toEnum)
 
 
 newtype Indent = Indent Int
@@ -58,6 +59,8 @@ derive newtype instance Show Definition
 derive newtype instance Show Caption
 derive newtype instance Show QuoteOf
 
+derive newtype instance Eq Level
+derive newtype instance Ord Level
 
 
 data Align
@@ -91,6 +94,7 @@ data Format
     | Sup
     | Fg (Either String Color)
     | Bg (Either String Color)
+    -- TODO: Resize Smaller / Larger / Scale Number / Exact Px
 
 
 -- data ListKind
@@ -140,6 +144,19 @@ data ImageSide -- FIXME: reuse come other type
 instance Semigroup Tag where
     append :: Tag -> Tag -> Tag
     append = Pair
+
+
+instance Bounded Level where
+    top = Level 1
+    bottom = Level 6
+
+instance Enum Level where
+    succ (Level 1) = Nothing
+    succ (Level n) | n > 1 && n <= 6 = Just $ Level $ n - 1
+    succ _ = Nothing
+    pred (Level 6) = Nothing
+    pred (Level n) | n > 1 && n <= 6 = Just $ Level $ n + 1
+    pred _ = Nothing
 
 
 nil :: Tag
@@ -383,7 +400,11 @@ listb_ bul = List bul Empty
 
 
 stack :: Array Tag -> Tag
-stack = Para -- nest 0?
+stack = Para
+
+
+paras :: Array Tag -> Tag
+paras = joinWith blank
 
 
 fgcs :: Color -> String -> Tag
@@ -468,6 +489,63 @@ of_ = QuoteOf
 
 space :: Tag
 space = plain " "
+
+
+mark :: Tag -> Tag -> Tag
+mark m c = m <> space <> c
+
+
+sub :: Tag -> Tag
+sub = Format $ Sub
+
+
+sup :: Tag -> Tag
+sup = Format $ Sup
+
+
+_null :: Tag -> Tag
+_null = identity -- to mark some tag with a plan to replace it with another one in future
+
+
+-- TODO: also convert to tree
+traverse :: (Tag -> Tag) -> Tag -> Tag
+traverse f = case _ of
+    Format format tag -> f $ Format format $ traverse f tag
+    Align align tag -> f $ Align align $ traverse f tag
+    Split tagA tagB -> f $ Split (traverse f tagA) (traverse f tagB)
+    Pair tagA tagB -> f $ Pair (traverse f tagA) (traverse f tagB)
+    Join with tags -> f $ Join (traverse f with) $ traverse f <$> tags
+    Wrap tagA tagB tagC -> f $ Wrap (traverse f tagA) (traverse f tagB) (traverse f tagC)
+    Para tags -> f $ Para $ traverse f <$> tags
+    Nest indent tags -> f $ Nest indent $ traverse f <$> tags
+    List bullet hTag tags -> f $ List bullet (traverse f hTag) $ traverse f <$> tags
+    Table headers cells -> f $ Table (traverse f <$> headers) (map (traverse f) <$> cells)
+    DefList defs -> f $ DefList $ traverseDef <$> defs
+    Image params url -> f $ Image params url
+    Plain str -> f $ Plain str
+    Newline -> f Newline
+    Empty -> f Empty
+    Hr -> f Hr
+    where
+        traverseDef :: TermAndDefinition -> TermAndDefinition
+        traverseDef (TAndD (Term termTag /\ Definition defTag)) =
+             TAndD $ Term (traverse f termTag) /\ Definition (traverse f defTag)
+
+
+
+levelUp :: Tag -> Tag
+levelUp = traverse $ case _ of
+    Format (Header level anchor) tag -> Format (Header (fromMaybe top $ succ level) anchor) tag
+    tag -> tag
+
+
+levelDown :: Tag -> Tag
+levelDown = traverse $ case _ of
+    Format (Header level anchor) tag -> Format (Header (fromMaybe bottom $ pred level) anchor) tag
+    tag -> tag
+
+
+-- TODO: indent left / right
 
 
 blank :: Tag
