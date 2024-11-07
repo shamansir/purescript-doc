@@ -17,7 +17,6 @@ import Data.Tuple.Nested ((/\), type (/\))
 
 
 newtype Indent = Indent Int
-newtype Level = Level Int
 newtype FootnoteId = FootnoteId (Either Int String)
 newtype Anchor = Anchor String
 newtype ProgrammingLanguage = ProgrammingLanguage String
@@ -36,7 +35,6 @@ newtype QuoteOf = QuoteOf String
 
 
 derive instance Newtype Indent _
-derive instance Newtype Level _
 derive instance Newtype FootnoteId _
 derive instance Newtype Anchor _
 derive instance Newtype ProgrammingLanguage _
@@ -50,7 +48,6 @@ derive instance Newtype QuoteOf _
 
 
 derive newtype instance Show Indent
-derive newtype instance Show Level
 derive newtype instance Show FootnoteId
 derive newtype instance Show Anchor
 derive newtype instance Show ProgrammingLanguage
@@ -59,14 +56,23 @@ derive newtype instance Show Definition
 derive newtype instance Show Caption
 derive newtype instance Show QuoteOf
 
-derive newtype instance Eq Level
-derive newtype instance Ord Level
+derive instance Eq HLevel
+derive instance Ord HLevel
 
 
 data Align
     = Left
     | Right
     | Center
+
+
+data HLevel
+    = H1
+    | H2
+    | H3
+    | H4
+    | H5
+    | H6
 
 
 data Format
@@ -79,7 +85,7 @@ data Format
     | Invisible
     | Strikethrough
     | Monospaced
-    | Header Level (Maybe Anchor)
+    | Header HLevel (Maybe Anchor)
     | Quote (Maybe QuoteOf)
     | Verbatim
     | Link Url
@@ -144,19 +150,6 @@ data ImageSide -- FIXME: reuse come other type
 instance Semigroup Tag where
     append :: Tag -> Tag -> Tag
     append = Pair
-
-
-instance Bounded Level where
-    top = Level 1
-    bottom = Level 6
-
-instance Enum Level where
-    succ (Level 1) = Nothing
-    succ (Level n) | n > 1 && n <= 6 = Just $ Level $ n - 1
-    succ _ = Nothing
-    pred (Level 6) = Nothing
-    pred (Level n) | n > 1 && n <= 6 = Just $ Level $ n + 1
-    pred _ = Nothing
 
 
 nil :: Tag
@@ -333,11 +326,11 @@ to_ftni = Format <<< LinkTo <<< FootnoteId <<< E.Left
 
 
 h :: Int -> Tag -> Tag
-h lvl = Format $ Header (Level lvl) Nothing
+h lvl = Format $ Header (lvlFromInt lvl) Nothing
 
 
 h' :: Int -> String -> Tag -> Tag
-h' lvl = Format <<< Header (Level lvl) <<< Just <<< Anchor
+h' lvl = Format <<< Header (lvlFromInt lvl) <<< Just <<< Anchor
 
 
 h1 = h 1 :: Tag -> Tag
@@ -598,6 +591,50 @@ upper-roman	The marker is upper-roman (I, II, III, IV, V, etc.)
 -}
 
 
+instance Bounded HLevel where
+    top = H1
+    bottom = H6
+
+
+instance Enum HLevel where
+    succ = case _ of
+        H1 -> Nothing
+        H2 -> Just H1
+        H3 -> Just H2
+        H4 -> Just H3
+        H5 -> Just H4
+        H6 -> Just H5
+    pred = case _ of
+        H1 -> Just H2
+        H2 -> Just H3
+        H3 -> Just H4
+        H4 -> Just H5
+        H5 -> Just H6
+        H6 -> Nothing
+
+
+lvlToInt :: HLevel -> Int
+lvlToInt = case _ of
+    H1 -> 1
+    H2 -> 2
+    H3 -> 3
+    H4 -> 4
+    H5 -> 5
+    H6 -> 6
+
+
+lvlFromInt :: Int -> HLevel
+lvlFromInt = case _ of
+    0 -> H1
+    1 -> H1
+    2 -> H2
+    3 -> H3
+    4 -> H4
+    5 -> H5
+    6 -> H6
+    n -> if n < 0 then top else bottom
+
+
 -- TODO: do syntax?
 
 instance Show Tag where
@@ -662,6 +699,16 @@ instance Show Bullet where
     show Alpha = "alpha"
     show AlphaInv = "alphainv"
     show Num = "num"
+
+
+instance Show HLevel where
+    show = case _ of
+        H1 -> "H1"
+        H2 -> "H2"
+        H3 -> "H3"
+        H4 -> "H4"
+        H5 -> "H5"
+        H6 -> "H6"
 
 
 instance Show Format where
