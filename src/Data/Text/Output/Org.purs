@@ -10,10 +10,10 @@ import Data.Newtype (unwrap)
 import Data.Text.Doc (Doc)
 import Data.Text.Doc as D
 import Data.Text.Format
-    ( Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), Level(..), Anchor(..)
+    ( Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), HLevel(..), Anchor(..)
     , FootnoteId(..), ProgrammingLanguage(..), Indent(..), TermAndDefinition(..), Bullet(..)
     , ImageParams(..), ImageSide(..), QuoteOf(..)
-    , bulletPrefix
+    , bulletPrefix, hLevelToInt
     )
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -48,8 +48,8 @@ instance Renderer Org where
             case format of
                 Fg _ -> layout tag
                 Bg _ -> layout tag
-                Header (Level n) _ ->
-                    D.repeat n (D.text "*") <> D.space <> layout tag -- TODO: use anchor
+                Header hLevel _ ->
+                    D.repeat (hLevelToInt hLevel) (D.text "*") <> D.space <> layout tag -- TODO: use anchor
                 Bold -> D.wrap "*" $ layout tag
                 Emphasis -> D.wrap "/" $ layout tag
                 Highlight -> D.wrap "==" $ layout tag

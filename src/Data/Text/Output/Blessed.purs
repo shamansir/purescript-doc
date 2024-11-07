@@ -14,7 +14,7 @@ import Data.Either (Either(..)) as E
 import Data.Tuple (curry, uncurry)
 import Data.Tuple.Nested ((/\), type (/\))
 import Data.String (joinWith) as String
-import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), Bullet(..), ImageParams(..), bulletPrefix)
+import Data.Text.Format (Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..), Url(..), HLevel(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Indent(..), Bullet(..), ImageParams(..), bulletPrefix)
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (Support(..), perform) as S

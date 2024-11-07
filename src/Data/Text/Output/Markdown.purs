@@ -15,9 +15,9 @@ import Data.Newtype (unwrap)
 
 import Data.Text.Format
     ( Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
-    , Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..)
+    , Url(..), HLevel(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..)
     , Indent(..), ImageParams(..), ImageSide(..), QuoteOf(..)
-    , bulletPrefix)
+    , bulletPrefix, hLevelToInt)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
 import Data.Text.Output (Support(..)) as S
@@ -52,8 +52,8 @@ instance Renderer Markdown where
                 Fg (E.Right color) -> wrapS "span" ("color:" <> Color.toHexString color) tag
                 Bg (E.Left colorStr) -> wrapS "span" ("background-color:" <> colorStr) tag
                 Bg (E.Right color) -> wrapS "span" ("background-color:" <> Color.toHexString color) tag
-                Header (Level n) mbAnchor ->
-                    D.repeat n (D.text "#") <> D.space <> layout tag <> case mbAnchor of
+                Header hLevel mbAnchor ->
+                    D.repeat (hLevelToInt hLevel) (D.text "#") <> D.space <> layout tag <> case mbAnchor of
                         Just (Anchor anchor) -> D.space <> D.bracket "{#" (D.text anchor) "}"
                         Nothing -> D.nil
                 Bold -> D.wrap "**" $ layout tag

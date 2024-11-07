@@ -13,7 +13,7 @@ import Data.Either (Either(..)) as E
 import Data.Tuple.Nested ((/\))
 import Data.Text.Format
     ( Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
-    , Url(..), Level(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..)
+    , Url(..), HLevel(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..)
     , ImageParams(..), ImageSide(..), QuoteOf(..)
     )
 import Data.Text.Output (layout) as O
@@ -79,7 +79,7 @@ instance Renderer Html where
                 Fg (E.Right color) -> wrapS "span" ("color:" <> Color.toHexString color) tag
                 Bg (E.Left colorStr) -> wrapS "span" ("background-color:" <> colorStr) tag
                 Bg (E.Right color) -> wrapS "span" ("background-color:" <> Color.toHexString color) tag
-                Header (Level n) mbAnchor -> wrap' ("h" <> show (max 6 n)) $ case mbAnchor of
+                Header hLevel mbAnchor -> wrap' (hLevelTag hLevel) $ case mbAnchor of
                     Just (Anchor anchor) -> wrapAttr "a" "name" anchor tag
                     Nothing -> layout tag
                 Bold -> wrap "b" tag
@@ -177,3 +177,13 @@ singleLine = layout >>> D.render { break : D.Space, indent : D.Empty }
 
 multiLine :: Tag -> String
 multiLine = layout >>> D.render { break : D.All, indent : D.Spaces 2 }
+
+
+hLevelTag :: HLevel -> String
+hLevelTag = case _ of
+    H1 -> "h1"
+    H2 -> "h2"
+    H3 -> "h3"
+    H4 -> "h4"
+    H5 -> "h5"
+    H6 -> "h6"

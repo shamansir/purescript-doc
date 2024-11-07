@@ -11,7 +11,7 @@ import Data.Newtype (unwrap)
 import Data.Text.Doc (Doc)
 import Data.Text.Doc as D
 import Data.Text.Format
-    ( Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), Level(..), Anchor(..)
+    ( Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), HLevel(..), Anchor(..)
     , FootnoteId(..), ProgrammingLanguage(..), Indent(..), TermAndDefinition(..), Bullet(..)
     , ImageParams(..), ImageSide(..), QuoteOf(..)
     , bulletPrefix
@@ -55,17 +55,7 @@ instance Renderer LaTeX where
                 Fg (E.Right colorVal) -> latexCmdAttr "textcolor" ("#" <> Color.toHexString colorVal) tag
                 Bg (E.Left colorStr) -> latexCmdAttr "colorbox" colorStr tag
                 Bg (E.Right colorVal) -> latexCmdAttr "colorbox" ("#" <> Color.toHexString colorVal) tag
-                Header (Level n) _ ->
-                    case n of
-                        -- https://www.overleaf.com/learn/latex/Sections_and_chapters#Document_sectioning
-                        0 -> latexCmd "part" tag
-                        1 -> latexCmd "chapter" tag
-                        2 -> latexCmd "section" tag
-                        3 -> latexCmd "subsection" tag
-                        4 -> latexCmd "subsubsection" tag
-                        5 -> latexCmd "paragraph" tag
-                        6 -> latexCmd "subparagraph" tag
-                        _ -> latexCmd "subparagraph" tag
+                Header hLevel _ -> latexCmd (hLevelCmd hLevel) tag -- https://www.overleaf.com/learn/latex/Sections_and_chapters#Document_sectioning
                 Bold -> latexCmd "textbf" tag
                 Emphasis -> latexCmd "emph" tag
                 Highlight -> latexCmd "hl" tag
@@ -145,3 +135,15 @@ instance Renderer LaTeX where
                 None -> Nothing /\ doc
                 _ -> (Just $ bulletPrefix index bullet) /\ doc
             def (TAndD (Term term /\ Definition definition)) = latexCmdAttrSq' "item" (layout term) definition -- latexListItem (Just dt) $ layout tag
+
+
+hLevelCmd :: HLevel -> String
+hLevelCmd = case _ of
+    -- https://www.overleaf.com/learn/latex/Sections_and_chapters#Document_sectioning
+    H1 -> "part"
+    H2 -> "chapter"
+    H3 -> "section"
+    H4 -> "subsection"
+    H5 -> "subsubsection"
+    H6 -> "paragraph"
+    -- "subparagraph"

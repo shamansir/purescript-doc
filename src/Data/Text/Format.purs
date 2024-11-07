@@ -326,11 +326,11 @@ to_ftni = Format <<< LinkTo <<< FootnoteId <<< E.Left
 
 
 h :: Int -> Tag -> Tag
-h lvl = Format $ Header (lvlFromInt lvl) Nothing
+h lvl = Format $ Header (hLevelFromInt lvl) Nothing
 
 
 h' :: Int -> String -> Tag -> Tag
-h' lvl = Format <<< Header (lvlFromInt lvl) <<< Just <<< Anchor
+h' lvl = Format <<< Header (hLevelFromInt lvl) <<< Just <<< Anchor
 
 
 h1 = h 1 :: Tag -> Tag
@@ -613,8 +613,8 @@ instance Enum HLevel where
         H6 -> Nothing
 
 
-lvlToInt :: HLevel -> Int
-lvlToInt = case _ of
+hLevelToInt :: HLevel -> Int
+hLevelToInt = case _ of
     H1 -> 1
     H2 -> 2
     H3 -> 3
@@ -623,8 +623,8 @@ lvlToInt = case _ of
     H6 -> 6
 
 
-lvlFromInt :: Int -> HLevel
-lvlFromInt = case _ of
+hLevelFromInt :: Int -> HLevel
+hLevelFromInt = case _ of
     0 -> H1
     1 -> H1
     2 -> H2
