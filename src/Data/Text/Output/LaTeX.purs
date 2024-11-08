@@ -36,6 +36,7 @@ layout :: Tag -> Doc
 layout = O.layout latex
 
 
+-- FIXME: use Data.Text.Format.Latex helpers
 instance Renderer LaTeX where
 
     supported :: Proxy LaTeX -> Tag -> Support
@@ -104,23 +105,27 @@ instance Renderer LaTeX where
                 Auto /\ Px hpx ->
                     latexCmdAttrSq "includegraphics" ("height=" <> show hpx <> "pt") $ Plain url
         List bullet Empty items ->
-            latexBeginEnd' "itemize" $
+            latexBeginEndNls' "itemize" $
                 D.nest' 1 $ uncurry latexListItem <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
         List bullet start items ->
             D.nest' 0 $ -- FIXME: support levels from `Nest`
                 [ layout start
-                , latexBeginEnd' "itemize" $
+                , latexBeginEndNls' "itemize" $
                     D.nest' 1 $ uncurry latexListItem <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
                 ]
         DefList definitions ->
-            latexBeginEnd' "itemize" $ D.stack $ def <$> definitions
+            latexBeginEndNls' "itemize" $ D.stack $ def <$> definitions
         Table headers rows ->
             -- https://www.overleaf.com/learn/latex/Tables
             -- FIXME: implement
             D.nil
         Hr -> D.text "\\hline"
+        Newpage -> D.text "\\newpage"
+        Pagebreak mbPriority -> case mbPriority of
+            Just priority -> D.text "\\pagebreak" <> D.space <> D.text (show priority)
+            Nothing -> D.text "\\pagebreak"
         where
-            latexCmd cmd tag = D.bracket ("\\" <> cmd) (layout tag) "}"
+            latexCmd cmd tag = D.bracket ("\\" <> cmd <> "{") (layout tag) "}"
             latexCmdAttr cmd attrVal tag = D.bracket ("\\" <> cmd <> "{") (D.text attrVal) "}" <> D.bracket "{" (layout tag) "}"
             latexCmdAttrSq cmd attrVal tag = D.bracket ("\\" <> cmd <> "[") (D.text attrVal) "]" <> D.bracket "{" (layout tag) "}"
             latexCmdAttrSq' cmd attrVal tag = D.bracket ("\\" <> cmd <> "[") attrVal "]" <> layout tag
@@ -129,6 +134,9 @@ instance Renderer LaTeX where
             latexBeginEnd cmd tag = latexBeginEnd' cmd $ layout tag
             latexBeginEnd' cmd doc = (latexCmd "begin" $ Plain cmd) <> doc <> (latexCmd "end" $ Plain cmd)
             latexBeginEndAttr cmd attrVal tag = (latexCmd "begin" $ Plain cmd) <> D.bracket "{" (D.text attrVal) "}" <> layout tag <> (latexCmd "end" $ Plain cmd)
+            latexBeginEndNls cmd tag = latexBeginEndNls' cmd $ layout tag
+            latexBeginEndNls' cmd doc = (latexCmd "begin" $ Plain cmd) <> D.break <> doc <> D.break <> (latexCmd "end" $ Plain cmd)
+            latexBeginEndNlsAttr cmd attrVal tag = (latexCmd "begin" $ Plain cmd) <> D.break <> D.bracket "{" (D.text attrVal) "}" <> layout tag <> D.break <> (latexCmd "end" $ Plain cmd)
             latexListItem Nothing doc = D.text "\\item" <> D.space <> doc
             latexListItem (Just bulletStr) doc = (D.text $ "\\item[" <> bulletStr <> "]") <> D.space <> doc
             b bullet (index /\ doc) = case bullet of
@@ -141,7 +149,8 @@ hLevelCmd :: HLevel -> String
 hLevelCmd = case _ of
     -- https://www.overleaf.com/learn/latex/Sections_and_chapters#Document_sectioning
     H1 -> "part"
-    H2 -> "chapter"
+    H2 -> "section"
+    -- H2 -> "chapter"
     H3 -> "section"
     H4 -> "subsection"
     H5 -> "subsubsection"

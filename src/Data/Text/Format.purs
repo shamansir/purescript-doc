@@ -138,6 +138,9 @@ data Tag
     -- | Table (Array (Tag /\ Array Tag))
     | Table (Array Tag) (Array (Array Tag))
     | Hr
+    | Newpage
+    | Pagebreak (Maybe Int)
+
 
 -- TODO: binary operators for tags
 -- TODO: empty tag
@@ -496,6 +499,18 @@ sup :: Tag -> Tag
 sup = Format $ Sup
 
 
+newpage :: Tag
+newpage = Newpage
+
+
+pagebreak :: Tag
+pagebreak = Pagebreak Nothing
+
+
+pagebreakAt :: Int -> Tag
+pagebreakAt = Pagebreak <<< Just
+
+
 _null :: Tag -> Tag
 _null = identity -- to mark some tag with a plan to replace it with another one in future
 
@@ -519,6 +534,8 @@ traverse f = case _ of
     Newline -> f Newline
     Empty -> f Empty
     Hr -> f Hr
+    Newpage -> f Newpage
+    Pagebreak n -> f $ Pagebreak n
     where
         traverseDef :: TermAndDefinition -> TermAndDefinition
         traverseDef (TAndD (Term termTag /\ Definition defTag)) =
@@ -665,6 +682,10 @@ instance Show Tag where
         Para tags -> wraplist "para" $ show <$> tags
         Newline -> just "nl"
         Hr -> just "hr"
+        Newpage -> just "newpage"
+        Pagebreak mbPriority -> case mbPriority of
+            Just n -> wrap "pagebreak" $ show n
+            Nothing -> just "pagebreak"
         Nest indent tags -> wraplistarg "nest" (show indent) $ show <$> tags
         Join tag tags -> wraplistarg "join" (show tag) $ show <$> tags
         Wrap start end tag -> wraparg2 "wrap" (show start) (show end) $ show tag

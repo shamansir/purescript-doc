@@ -67,6 +67,8 @@ instance Renderer Html where
         Image _ _ -> S.Full
         Table _ _ -> S.None
         Hr -> S.Text
+        Newpage -> S.None
+        Pagebreak _ -> S.None
 
     layout :: Proxy Html -> Tag -> Doc
     layout = const $ case _ of
@@ -150,6 +152,8 @@ instance Renderer Html where
                 $ (wrap' "thead" $ D.stack $ wrap "th" <$> headers)
                 <> D.break <> D.stack (wrap' "tr" <$> D.stack <$> map (wrap "td") <$> rows)
         Hr -> wrapE "hr"
+        Newpage -> D.break <> D.break
+        Pagebreak _ -> D.break <> D.break
         where
             -- b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             ident n = wrapS "div" ("padding-left:" <> show n)

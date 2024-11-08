@@ -74,6 +74,8 @@ instance Renderer Blessed where
         DefList _ -> S.Text
         Table _ _ -> S.None
         Hr -> S.Text
+        Newpage -> S.None
+        Pagebreak _ -> S.None
 
     layout :: Proxy Blessed -> Tag -> Doc
     layout = const $ case _ of
@@ -127,6 +129,8 @@ instance Renderer Blessed where
                 ] <> (D.joinWith (D.text "|") <$> map layout <$> rows)
 
         Hr -> D.text "----------"
+        Newpage -> D.break <> D.break
+        Pagebreak _ -> D.break <> D.break
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout tag <> D.bracket "{/" (D.text cmd) "}"

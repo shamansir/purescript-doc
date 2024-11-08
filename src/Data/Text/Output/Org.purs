@@ -32,7 +32,7 @@ org = Proxy :: _ Org
 layout :: Tag -> Doc
 layout = O.layout org
 
-
+-- FIXME: use Data.Text.Format.Org helpers
 instance Renderer Org where
 
     supported :: Proxy Org -> Tag -> Support
@@ -114,6 +114,8 @@ instance Renderer Org where
                 , D.wrap "|" $ D.join $ Array.intersperse (D.text "+") $ Array.replicate (Array.length headers) $ D.text "-"
                 ] <> (D.wrap "|" <$> D.joinWith (D.text "|") <$> map layout <$> rows)
         Hr -> D.text "---------"
+        Newpage -> D.break <> D.break
+        Pagebreak _ -> D.break <> D.break
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             htmlattr attrName attrValue = D.mark "#+ATTR_HTML:" $ D.text (":" <> attrName) <> D.space <> D.text attrValue

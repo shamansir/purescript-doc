@@ -118,6 +118,8 @@ instance Renderer Markdown where
                 Px wpx /\ Auto ->   wrapAttrsE' "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ "auto", "alt" /\ unwrap params.caption ]
                 Auto /\ Px hpx ->   wrapAttrsE' "img" [ "src" /\ url, "width" /\ "auto", "height" /\ show hpx, "alt" /\ unwrap params.caption ]
         Hr -> D.text "---------"
+        Newpage -> D.break <> D.break
+        Pagebreak _ -> D.break <> D.break
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             wrap htmlTag = wrap' htmlTag <<< layout
