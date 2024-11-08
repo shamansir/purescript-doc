@@ -56,7 +56,7 @@ instance Renderer LaTeX where
                 Fg (E.Right colorVal) -> latexCmdAttr "textcolor" ("#" <> Color.toHexString colorVal) tag
                 Bg (E.Left colorStr) -> latexCmdAttr "colorbox" colorStr tag
                 Bg (E.Right colorVal) -> latexCmdAttr "colorbox" ("#" <> Color.toHexString colorVal) tag
-                Header hLevel _ -> latexCmd (hLevelCmd hLevel) tag -- https://www.overleaf.com/learn/latex/Sections_and_chapters#Document_sectioning
+                Header hLevel _ -> latexCmd (hLevelCmd Article hLevel) tag -- https://www.overleaf.com/learn/latex/Sections_and_chapters#Document_sectioning
                 Bold -> latexCmd "textbf" tag
                 Emphasis -> latexCmd "emph" tag
                 Highlight -> latexCmd "hl" tag
@@ -69,7 +69,7 @@ instance Renderer LaTeX where
                     latexBeginEndAttr "minted" (String.toLower lang) tag
                 Quote mbAuthor ->
                     case mbAuthor of
-                        Just (QuoteOf author) -> latexCmd "epigraph" tag <> latexCmd "textit" tag
+                        Just (QuoteOf author) -> latexCmd' "displayquote" (layout tag <> D.space <> D.text "--" <> D.space <> D.text author)
                         Nothing -> latexBeginEnd "displayquote" tag
                 Sub -> D.text "_" <> D.bracket "{" (layout tag) "}"
                 Sup -> D.text "^" <> D.bracket "{" (layout tag) "}"
@@ -125,7 +125,8 @@ instance Renderer LaTeX where
             Just priority -> D.text "\\pagebreak" <> D.space <> D.text (show priority)
             Nothing -> D.text "\\pagebreak"
         where
-            latexCmd cmd tag = D.bracket ("\\" <> cmd <> "{") (layout tag) "}"
+            latexCmd cmd tag = latexCmd' cmd $ layout tag
+            latexCmd' cmd doc = D.bracket ("\\" <> cmd <> "{") doc "}"
             latexCmdAttr cmd attrVal tag = D.bracket ("\\" <> cmd <> "{") (D.text attrVal) "}" <> D.bracket "{" (layout tag) "}"
             latexCmdAttrSq cmd attrVal tag = D.bracket ("\\" <> cmd <> "[") (D.text attrVal) "]" <> D.bracket "{" (layout tag) "}"
             latexCmdAttrSq' cmd attrVal tag = D.bracket ("\\" <> cmd <> "[") attrVal "]" <> layout tag
@@ -145,14 +146,28 @@ instance Renderer LaTeX where
             def (TAndD (Term term /\ Definition definition)) = latexCmdAttrSq' "item" (layout term) definition -- latexListItem (Just dt) $ layout tag
 
 
-hLevelCmd :: HLevel -> String
-hLevelCmd = case _ of
+data DocumentClass
+    = Article
+    | Book
+
+
+hLevelCmd :: DocumentClass -> HLevel -> String
+hLevelCmd docClass hLevel =
     -- https://www.overleaf.com/learn/latex/Sections_and_chapters#Document_sectioning
-    H1 -> "part"
-    H2 -> "section"
-    -- H2 -> "chapter"
-    H3 -> "section"
-    H4 -> "subsection"
-    H5 -> "subsubsection"
-    H6 -> "paragraph"
-    -- "subparagraph"
+    case docClass of
+        Book ->
+            case hLevel of
+                H1 -> "part"
+                H2 -> "chapter"
+                H3 -> "section"
+                H4 -> "subsection"
+                H5 -> "subsubsection"
+                H6 -> "paragraph"
+        Article ->
+            case hLevel of
+                H1 -> "part"
+                H2 -> "section"
+                H3 -> "subsection"
+                H4 -> "subsubsection"
+                H5 -> "paragraph"
+                H6 -> "subparagraph"
