@@ -1,4 +1,4 @@
-module Org.Test.Test18 where
+module Org.Test.Test06a where
 
 
 import Prelude (($), (#))
