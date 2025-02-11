@@ -12,7 +12,6 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (class Newtype)
 import Data.String (joinWith) as String
 import Data.String.CodeUnits (singleton) as String
-import Data.Text.Format.Org.Construct (tag)
 import Data.Tuple.Nested ((/\), type (/\))
 
 

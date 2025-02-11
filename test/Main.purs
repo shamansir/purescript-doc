@@ -13,8 +13,6 @@ import Test.Spec.Runner (runSpec)
 import Test.Formatting.Doc (spec) as FormattingDoc
 import Test.Formatting.Blessed (spec) as FormattingBlessed
 import Test.Formatting.Outputs (spec) as FormattingToOutputs
-import Test.Org.Export.Json (spec) as OrgToJson
-import Test.Org.Export.Org (spec) as OrgToOrg
 
 
 main :: Effect Unit
@@ -25,7 +23,3 @@ main = launchAff_ $ runSpec [consoleReporter] do
     FormattingBlessed.spec
   describe "Formatting : Outputs" $ do
     FormattingToOutputs.spec
-  describe "Org : to JSON"
-    OrgToJson.spec
-  describe "Org : to Org"
-    OrgToOrg.spec
