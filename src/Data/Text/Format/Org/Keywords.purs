@@ -2,7 +2,6 @@ module Data.Text.Format.Org.Keywords where
 
 import Prelude
 
-import Debug as Debug
 import Foreign (Foreign, F)
 
 import Data.Array as Array

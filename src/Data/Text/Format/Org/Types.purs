@@ -78,7 +78,7 @@ data Words
     | Punct CodePoint
     | Plain String
     | Markup String
-    | DateTime { start :: OrgDateTime, end :: Maybe OrgDateTime }
+    | DateTime { start :: OrgDateTime, end :: Maybe OrgDateTime } -- FIXME: use OrgDateTimeRange
     | ClockW Clock
     | DiaryW Diary
     | FootnoteRef { label :: String, def :: Maybe String } -- FIXME: support using `Words` here may be, but it causes recursion fails when exporting to JSON
@@ -131,6 +131,13 @@ newtype OrgTimeRange =
     OrgTimeRange
         { start :: Time
         , end :: Maybe Time
+        }
+
+
+newtype OrgDateRange =
+    OrgDateRange
+        { start :: OrgDateTime
+        , end :: Maybe OrgDateTime
         }
 
 
@@ -224,6 +231,7 @@ data Todo
     = Todo
     | Doing
     | Done
+    | Now
     | CustomKW String
 
 
@@ -1067,6 +1075,7 @@ type TodoRow =
     ( todo :: Case
     , doing :: Case
     , done :: Case
+    , now :: Case
     , custom :: Case1 String
     )
 
@@ -1078,6 +1087,7 @@ readTodo =
         { todo : Variant.use Todo
         , doing : Variant.use Doing
         , done : Variant.use Done
+        , now : Variant.use Now
         , custom : Variant.use1 CustomKW
         }
 
@@ -1087,6 +1097,7 @@ todoToVariant = case _ of
     Todo -> Variant.select (Proxy :: _ "todo")
     Doing -> Variant.select (Proxy :: _ "doing")
     Done -> Variant.select (Proxy :: _ "done")
+    Now -> Variant.select (Proxy :: _ "now")
     CustomKW s -> Variant.select1 (Proxy :: _ "custom") s
 
 
@@ -1096,6 +1107,7 @@ todoFromVariant =
         { todo : Variant.uncase Todo
         , doing : Variant.uncase Doing
         , done : Variant.uncase Done
+        , now : Variant.uncase Now
         , custom : Variant.uncase1 >>> CustomKW
         }
 
