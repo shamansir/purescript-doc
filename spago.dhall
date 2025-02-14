@@ -25,6 +25,7 @@ to generate this file without the comments in this block.
   , "newtype"
   , "prelude"
   , "strings"
+  , "these"
   , "tuples"
   ]
 , packages = ./packages.dhall
