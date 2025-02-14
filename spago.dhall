@@ -14,25 +14,18 @@ to generate this file without the comments in this block.
 , dependencies =
   [ "arrays"
   , "colors"
-  , "console"
   , "datetime"
   , "effect"
   , "either"
   , "enums"
   , "foldable-traversable"
-  , "foreign"
   , "formatters"
   , "lists"
   , "maybe"
   , "newtype"
-  , "ordered-collections"
   , "prelude"
   , "strings"
-  , "transformers"
   , "tuples"
-  , "unfoldable"
-  , "variant"
-  , "yoga-json"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]

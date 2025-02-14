@@ -10,14 +10,14 @@ import Test.Spec (Spec, SpecT, it, class Example)
 -- Monad m ⇒ Example t arg g ⇒ String → t → SpecT g arg m Unit
 
 --helper :: forall a t. { title :: Int -> a -> String, spec :: a -> t } -> Array a -> Spec Unit
-helper 
+helper
     :: forall
         (f ∷ Type -> Type)
         (idx ∷ Type)
-        (a ∷ Type) 
+        (a ∷ Type)
         (m ∷ Type -> Type)
-        (t ∷ Type) 
-        (arg ∷ Type) 
+        (t ∷ Type)
+        (arg ∷ Type)
         (g ∷ Type -> Type)
      . FoldableWithIndex idx f
     => Apply m
@@ -26,7 +26,7 @@ helper
     => { title :: idx -> a -> String
        , spec :: a -> t
        }
-    -> f a 
+    -> f a
     -> SpecT g arg m Unit
 helper { title, spec } =
     foldlWithIndex

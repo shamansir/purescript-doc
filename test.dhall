@@ -10,10 +10,5 @@ in conf // {
     , "newtype"
     , "aff"
     , "lists"
-    , "ordered-collections"
-    , "node-buffer"
-    , "node-fs"
-    , "bifunctors"
-    , "debug"
     ]
 }
