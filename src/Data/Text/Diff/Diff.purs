@@ -23,6 +23,15 @@ class Eq a <= Diffable a where
     toDiffString :: a -> String
 
 
+prefixes =
+    { left : ">>"
+    , right : "<<"
+    , eq : ".."
+    , add : "++"
+    , sub : "--"
+    }
+
+
 diffCompare
   :: forall m t
    . MonadEffect m
@@ -60,19 +69,19 @@ twoStacksComparison a b =
     let
         comparison = compareByLines a b
         formatLeft = case _ of
-            This lA -> Just $ "++ " <> lA
+            This lA -> Just $ prefixes.add <> " " <> lA
             That _ -> Nothing
             Both lA lB ->
                 Just $ if lA == lB
-                        then ".. " <> lA
-                        else ">> " <> lA
+                        then prefixes.eq   <> " " <> lA
+                        else prefixes.left <> " " <> lA
         formatRight = case _ of
             This _ -> Nothing
-            That lB -> Just $ "-- " <> lB
+            That lB -> Just $ prefixes.sub <> " " <> lB
             Both lA lB ->
                 Just $ if lA == lB
-                        then ".. " <> lB
-                        else "<< " <> lB
+                        then prefixes.eq    <> " " <> lB
+                        else prefixes.right <> " " <> lB
 
     in
            (String.joinWith "\n" $ Array.catMaybes $ formatLeft  <$> comparison)
@@ -103,11 +112,11 @@ instance Diffable Int where
 instance (Diffable a, Diffable b) => Diffable (These a b) where
     toDiffString = bimap toDiffString toDiffString >>>
         these
-            (\lA -> "++ " <> lA)
-            (\lB -> "-- " <> lB)
+            (\lA -> prefixes.add <> " " <> lA)
+            (\lB -> prefixes.sub <> " " <> lB)
             (\lA lB ->
-                if lA == lB then ".. " <> lA
-                else ">> " <> lA <> "\n" <> "<< " <> lB
+                if lA == lB then prefixes.eq <> " " <> lA
+                else prefixes.left <> " " <> lA <> "\n" <> prefixes.right <> " " <> lB
             )
         {-
         these
