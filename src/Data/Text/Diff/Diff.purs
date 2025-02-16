@@ -5,21 +5,25 @@ import Prelude
 import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Exception (Error, throw)
 
+import Control.Monad.Error.Class (class MonadError, class MonadThrow, try)
+
 import Data.String as String
+import Data.Maybe (Maybe(..))
+import Data.Array (catMaybes) as Array
+-- import Data.Text.Format (of_)
 import Data.Tuple (Tuple)
 import Data.Tuple (fst, snd) as Tuple
 import Data.Bifunctor (bimap)
+import Data.These (these, These(..), theseLeft, theseRight)
+import Data.Align (aligned, crosswalk)
 
-import Control.Monad.Error.Class (class MonadError, class MonadThrow, try)
-import Data.These (these, These)
-import Data.Align (align)
 
 
 class Eq a <= Diffable a where
     toDiffString :: a -> String
 
 
-ensureEqual
+diffCompare
   :: forall m t
    . MonadEffect m
   => MonadThrow Error m
@@ -27,18 +31,57 @@ ensureEqual
   => t
   -> t
   -> m Unit
-ensureEqual v1 v2 =
+diffCompare v1 v2 =
   when (v1 /= v2) $
-    liftEffect $ throw $ printLineComparison (toDiffString v1) (toDiffString v2)
+    liftEffect $ throw $ lineByLineComparison (toDiffString v1) (toDiffString v2)
 
 
-printLineComparison :: String -> String -> String
-printLineComparison a b =
+diffStackCompare
+  :: forall m t
+   . MonadEffect m
+  => MonadThrow Error m
+  => Diffable t
+  => t
+  -> t
+  -> m Unit
+diffStackCompare v1 v2 =
+  when (v1 /= v2) $
+    liftEffect $ throw $ twoStacksComparison (toDiffString v1) (toDiffString v2)
+
+
+lineByLineComparison :: String -> String -> String
+lineByLineComparison a b =
     String.joinWith "\n" $ toDiffString <$> compareByLines a b
 
 
+
+twoStacksComparison :: String -> String -> String
+twoStacksComparison a b =
+    let
+        comparison = compareByLines a b
+        formatLeft = case _ of
+            This lA -> Just $ "++ " <> lA
+            That _ -> Nothing
+            Both lA lB ->
+                Just $ if lA == lB
+                        then ".. " <> lA
+                        else ">> " <> lA
+        formatRight = case _ of
+            This _ -> Nothing
+            That lB -> Just $ "-- " <> lB
+            Both lA lB ->
+                Just $ if lA == lB
+                        then ".. " <> lB
+                        else "<< " <> lB
+
+    in
+           (String.joinWith "\n" $ Array.catMaybes $ formatLeft  <$> comparison)
+        <> "\n---------------------------------------------------------------\n"
+        <> (String.joinWith "\n" $ Array.catMaybes $ formatRight <$> comparison)
+
+
 compareMany :: forall a. Array a -> Array a -> Array (These a a)
-compareMany = align identity
+compareMany = aligned
 
 
 compareByLines :: String -> String -> Array (These String String)
