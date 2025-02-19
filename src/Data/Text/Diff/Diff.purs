@@ -58,10 +58,47 @@ diffStackCompare v1 v2 =
     liftEffect $ throw $ twoStacksComparison (toDiffString v1) (toDiffString v2)
 
 
+onlyDifferentCompare
+  :: forall m t
+   . MonadEffect m
+  => MonadThrow Error m
+  => Diffable t
+  => t
+  -> t
+  -> m Unit
+onlyDifferentCompare v1 v2 =
+  when (v1 /= v2) $
+    liftEffect $ throw $ onlyDiffsComparison (toDiffString v1) (toDiffString v2)
+
+
 lineByLineComparison :: String -> String -> String
 lineByLineComparison a b =
     String.joinWith "\n" $ toDiffString <$> compareByLines a b
 
+
+onlyDiffsComparison :: String -> String -> String
+onlyDiffsComparison a b =
+    let
+        comparison = compareByLines a b
+        formatLeft = case _ of
+            This lA -> Just $ prefixes.add <> " " <> lA
+            That _ -> Nothing
+            Both lA lB ->
+                if lA == lB
+                    then Nothing
+                    else Just $ prefixes.left <> " " <> lA
+        formatRight = case _ of
+            This _ -> Nothing
+            That lB -> Just $ prefixes.sub <> " " <> lB
+            Both lA lB ->
+                if lA == lB
+                    then Nothing
+                    else Just $ prefixes.right <> " " <> lB
+
+    in
+           (String.joinWith "\n" $ Array.catMaybes $ formatLeft  <$> comparison)
+        <> "\n---------------------------------------------------------------\n"
+        <> (String.joinWith "\n" $ Array.catMaybes $ formatRight <$> comparison)
 
 
 twoStacksComparison :: String -> String -> String
