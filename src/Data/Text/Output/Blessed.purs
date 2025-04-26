@@ -76,6 +76,8 @@ instance Renderer Blessed where
         Hr -> S.Text
         Newpage -> S.None
         Pagebreak _ -> S.None
+        WithId _ _ _ -> S.Partly
+        WithClass _ _ _ -> S.Partly
 
     layout :: Proxy Blessed -> Tag -> Doc
     layout = const $ case _ of
@@ -131,6 +133,8 @@ instance Renderer Blessed where
         Hr -> D.text "----------"
         Newpage -> D.break <> D.break
         Pagebreak _ -> D.break <> D.break
+        WithId _ _ tag -> layout tag
+        WithClass _ _ tag -> layout tag
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout tag <> D.bracket "{/" (D.text cmd) "}"

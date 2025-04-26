@@ -12,7 +12,7 @@ import Data.Text.Doc as D
 import Data.Text.Format
     ( Tag(..), Format(..), Align(..), Term(..), Definition(..), Url(..), HLevel(..), Anchor(..)
     , FootnoteId(..), ProgrammingLanguage(..), Indent(..), TermAndDefinition(..), Bullet(..)
-    , ImageParams(..), ImageSide(..), QuoteOf(..)
+    , ImageParams(..), ImageSide(..), QuoteOf(..), ChunkId(..), WrapKind(..)
     , bulletPrefix, hLevelToInt
     )
 import Data.Text.Output (OutputKind, class Renderer, Support)
@@ -116,6 +116,9 @@ instance Renderer Org where
         Hr -> D.text "---------"
         Newpage -> D.break <> D.break
         Pagebreak _ -> D.break <> D.break
+        WithId Block (ChunkId chunkId) tag -> D.mark "#+ID:" (D.text chunkId) <> D.break <> layout tag
+        WithId _ _ tag -> layout tag
+        WithClass _ _ tag -> layout tag -- FIXME
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             htmlattr attrName attrValue = D.mark "#+ATTR_HTML:" $ D.text (":" <> attrName) <> D.space <> D.text attrValue

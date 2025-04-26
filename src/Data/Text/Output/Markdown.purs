@@ -120,6 +120,8 @@ instance Renderer Markdown where
         Hr -> D.text "---------"
         Newpage -> D.break <> D.break
         Pagebreak _ -> D.break <> D.break
+        WithId _ _ tag -> layout tag -- FIXME, implement with Markdown Extensions
+        WithClass _ _ tag -> layout tag -- FIXME, implement with Markdown Extensions
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             wrap htmlTag = wrap' htmlTag <<< layout

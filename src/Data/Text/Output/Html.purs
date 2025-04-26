@@ -14,7 +14,8 @@ import Data.Tuple.Nested ((/\))
 import Data.Text.Format
     ( Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
     , Url(..), HLevel(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..)
-    , Indent(..), ImageParams(..), ImageSide(..), QuoteOf(..)
+    , Indent(..), ImageParams(..), ImageSide(..), QuoteOf(..), ChunkId(..), ChunkClass(..)
+    , WrapKind(..)
     )
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
@@ -69,6 +70,8 @@ instance Renderer Html where
         Hr -> S.Text
         Newpage -> S.None
         Pagebreak _ -> S.None
+        WithId _ _ _ -> S.Full
+        WithClass _ _ _ -> S.Full
 
     layout :: Proxy Html -> Tag -> Doc
     layout = const $ case _ of
@@ -154,6 +157,8 @@ instance Renderer Html where
         Hr -> wrapE "hr"
         Newpage -> D.break <> D.break
         Pagebreak _ -> D.break <> D.break
+        WithId wk (ChunkId chId) tag -> wrapAttr (tagByWrapKind wk) "id" chId tag
+        WithClass wk (ChunkClass chClass) tag -> wrapAttr (tagByWrapKind wk) "class" chClass tag
         where
             -- b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             indent (Indent n) = wrapS "div" ("margin-left:" <> show (n * 8) <> "px")
@@ -171,6 +176,8 @@ instance Renderer Html where
             wrapS' htmlTag = wrapAttr' htmlTag "style"
             wrapE htmlTag = D.bracket "<" (D.text htmlTag) "/>"
             def (TAndD (Term term /\ Definition definition)) = wrap' "dt" (layout term) <> D.break <> wrap' "dd" (layout definition)
+            tagByWrapKind Block = "div"
+            tagByWrapKind Inline = "span"
 
 
 

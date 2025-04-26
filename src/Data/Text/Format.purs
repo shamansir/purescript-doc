@@ -119,6 +119,15 @@ data Bullet
     -- ..
 
 
+newtype ChunkId = ChunkId String
+newtype ChunkClass = ChunkClass String
+
+
+data WrapKind
+    = Block
+    | Inline
+
+
 data Tag
     = Empty
     | Plain String
@@ -136,6 +145,8 @@ data Tag
     | DefList (Array TermAndDefinition)
     -- | Table (Array (Tag /\ Array Tag))
     | Table (Array Tag) (Array (Array Tag))
+    | WithId WrapKind ChunkId Tag
+    | WithClass WrapKind ChunkClass Tag
     | Hr
     | Newpage
     | Pagebreak (Maybe Int)
@@ -510,6 +521,22 @@ pagebreakAt :: Int -> Tag
 pagebreakAt = Pagebreak <<< Just
 
 
+id :: String -> Tag -> Tag
+id = WithId Inline <<< ChunkId
+
+
+_class :: String -> Tag -> Tag
+_class = WithClass Inline <<< ChunkClass
+
+
+bl_id :: String -> Tag -> Tag
+bl_id = WithId Block <<< ChunkId
+
+
+bl_class :: String -> Tag -> Tag
+bl_class = WithClass Block <<< ChunkClass
+
+
 _null :: Tag -> Tag
 _null = identity -- to mark some tag with a plan to replace it with another one in future
 
@@ -535,6 +562,8 @@ traverse f = case _ of
     Hr -> f Hr
     Newpage -> f Newpage
     Pagebreak n -> f $ Pagebreak n
+    WithId wk id tag -> WithId wk id $ traverse f tag
+    WithClass wk cl tag -> WithClass wk cl $ traverse f tag
     where
         traverseDef :: TermAndDefinition -> TermAndDefinition
         traverseDef (TAndD (Term termTag /\ Definition defTag)) =
@@ -653,6 +682,12 @@ hLevelFromInt = case _ of
 
 -- TODO: do syntax?
 
+instance Show WrapKind where
+    show = case _ of
+        Block -> "block"
+        Inline -> "inline"
+
+
 instance Show Tag where
     show = case _ of
         Empty -> just "empty"
@@ -692,6 +727,8 @@ instance Show Tag where
         List bullet tag tags -> wraplistarg2 "list" (show bullet) (show tag) $ show <$> tags
         DefList definitions -> wraplist "list" $ show <$> definitions
         Table headers rows -> wrap "table" $ (wrap "header" $ String.joinWith "," $ show <$> headers) <> "|" <> (wraplist "row" $ wraplist "column" <$> map show <$> rows)
+        WithId wrapKind (ChunkId chunkId) tag -> wraparg2 "with-id" (show wrapKind) chunkId $ show tag
+        WithClass wrapKind (ChunkClass chunkClass) tag -> wraparg2 "with-class" (show wrapKind) chunkClass $ show tag
         where
             just title = "(" <> title <> ")"
             wrap title v = "(" <> title <> ":" <> v <> ")"

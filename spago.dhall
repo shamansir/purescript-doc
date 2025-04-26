@@ -13,12 +13,14 @@ to generate this file without the comments in this block.
 { name = "text-formatting"
 , dependencies =
   [ "arrays"
+  , "bifunctors"
   , "colors"
   , "datetime"
   , "dodo-printer"
   , "effect"
   , "either"
   , "enums"
+  , "exceptions"
   , "foldable-traversable"
   , "formatters"
   , "lists"
@@ -27,6 +29,7 @@ to generate this file without the comments in this block.
   , "prelude"
   , "strings"
   , "these"
+  , "transformers"
   , "tuples"
   ]
 , packages = ./packages.dhall

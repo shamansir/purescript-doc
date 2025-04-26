@@ -124,6 +124,8 @@ instance Renderer LaTeX where
         Pagebreak mbPriority -> case mbPriority of
             Just priority -> D.text "\\pagebreak" <> D.space <> D.text (show priority)
             Nothing -> D.text "\\pagebreak"
+        WithId _ _ tag -> layout tag -- FIXME
+        WithClass _ _ tag -> layout tag -- FIXME
         where
             latexCmd cmd tag = latexCmd' cmd $ layout tag
             latexCmd' cmd doc = D.bracket ("\\" <> cmd <> "{") doc "}"
