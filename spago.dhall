@@ -15,6 +15,7 @@ to generate this file without the comments in this block.
   [ "arrays"
   , "colors"
   , "datetime"
+  , "dodo-printer"
   , "effect"
   , "either"
   , "enums"

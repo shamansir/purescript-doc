@@ -14,7 +14,7 @@ import Data.Tuple.Nested ((/\))
 import Data.Text.Format
     ( Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
     , Url(..), HLevel(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..), Bullet(..)
-    , ImageParams(..), ImageSide(..), QuoteOf(..)
+    , Indent(..), ImageParams(..), ImageSide(..), QuoteOf(..)
     )
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
@@ -122,7 +122,7 @@ instance Renderer Html where
         Align Center tag -> wrapS "div" "text-align:center" tag
         Pair tagA tagB -> layout tagA <> layout tagB
         Para tags -> D.stack $ layout <$> tags
-        Nest i tags -> D.nest' (unwrap i) $ ident i <$> tags
+        Nest i tags -> D.nest' (unwrap i) $ indent i <$> tags
         Join tag tags -> D.folddoc (<>) $ layout <$> Array.intersperse tag tags
         Wrap start end tag -> D.bracket' (layout start) (layout tag) (layout end) -- TODO: encode text
         List bullet Empty items ->
@@ -132,7 +132,7 @@ instance Renderer Html where
                 AlphaInv -> "none" -- FIXME
                 Disc -> "disc"
                 Circle -> "circle"
-                Dash -> "dash"
+                Dash -> "'- '" -- "dash"
                 Num -> "decimal"
                 None -> "none"
             ) $ D.stack $ wrap "li" <$> items
@@ -156,7 +156,7 @@ instance Renderer Html where
         Pagebreak _ -> D.break <> D.break
         where
             -- b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
-            ident n = wrapS "div" ("padding-left:" <> show n)
+            indent (Indent n) = wrapS "div" ("margin-left:" <> show (n * 8) <> "px")
             inlineBlockStyle = "style" /\ "display:inline-block"
             wrap htmlTag = wrap' htmlTag <<< layout
             wrap' htmlTag content = D.bracket "<" (D.text htmlTag) ">" <> content <> D.bracket "</" (D.text htmlTag) ">"
