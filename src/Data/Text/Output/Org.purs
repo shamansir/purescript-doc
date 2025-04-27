@@ -119,6 +119,7 @@ instance Renderer Org where
         WithId Block (ChunkId chunkId) tag -> D.mark "#+ID:" (D.text chunkId) <> D.break <> layout tag
         WithId _ _ tag -> layout tag
         WithClass _ _ tag -> layout tag -- FIXME
+        Custom _ _ tag -> layout tag -- FIXME
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             htmlattr attrName attrValue = D.mark "#+ATTR_HTML:" $ D.text (":" <> attrName) <> D.space <> D.text attrValue

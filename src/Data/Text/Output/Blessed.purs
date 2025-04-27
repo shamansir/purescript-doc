@@ -78,6 +78,7 @@ instance Renderer Blessed where
         Pagebreak _ -> S.None
         WithId _ _ _ -> S.Partly
         WithClass _ _ _ -> S.Partly
+        Custom _ _ _ -> S.Partly
 
     layout :: Proxy Blessed -> Tag -> Doc
     layout = const $ case _ of
@@ -135,6 +136,7 @@ instance Renderer Blessed where
         Pagebreak _ -> D.break <> D.break
         WithId _ _ tag -> layout tag
         WithClass _ _ tag -> layout tag
+        Custom _ _ tag -> layout tag
         where
             b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             wrap cmd tag = D.bracket "{" (D.text cmd) "}" <> layout tag <> D.bracket "{/" (D.text cmd) "}"

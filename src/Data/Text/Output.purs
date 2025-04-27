@@ -34,15 +34,21 @@ class ToDoc a where
     toDoc :: a -> Doc
 
 
+class FormatterBy (x :: OutputKind) a where
+    formatBy :: Proxy x -> a -> Tag
+
+
 class Renderer (x :: OutputKind) where
     -- options :: Proxy x -> Options
     supported :: Proxy x -> Tag -> Support
     layout :: Proxy x -> Tag -> Doc
 
 
-class (Renderer x, Formatter a) <= Format (x :: OutputKind) a | x -> a where
+class Renderer x <= Format (x :: OutputKind) a | x -> a where
     perform :: Proxy x -> Doc.Options -> a -> String
 
 
 instance (Renderer x, Formatter a) => Format x a where
     perform p opts = format >>> layout p >>> Doc.render opts
+else instance (Renderer x, FormatterBy x a) => Format x a where
+    perform p opts = formatBy p >>> layout p >>> Doc.render opts

@@ -150,6 +150,7 @@ data Tag
     | Hr
     | Newpage
     | Pagebreak (Maybe Int)
+    | Custom String (Array (String /\ String)) Tag
 
 
 -- TODO: binary operators for tags
@@ -163,6 +164,10 @@ data ImageSide -- FIXME: reuse come other type
 instance Semigroup Tag where
     append :: Tag -> Tag -> Tag
     append = Pair
+
+
+hr :: Tag
+hr = Hr
 
 
 nil :: Tag
@@ -537,6 +542,14 @@ bl_class :: String -> Tag -> Tag
 bl_class = WithClass Block <<< ChunkClass
 
 
+custom :: String -> Tag -> Tag
+custom name = Custom name []
+
+
+custom_ :: String -> Array (String /\ String) -> Tag -> Tag
+custom_ = Custom
+
+
 _null :: Tag -> Tag
 _null = identity -- to mark some tag with a plan to replace it with another one in future
 
@@ -562,8 +575,9 @@ traverse f = case _ of
     Hr -> f Hr
     Newpage -> f Newpage
     Pagebreak n -> f $ Pagebreak n
-    WithId wk id tag -> WithId wk id $ traverse f tag
-    WithClass wk cl tag -> WithClass wk cl $ traverse f tag
+    WithId wk id tag -> f $ WithId wk id $ traverse f tag
+    WithClass wk cl tag -> f $ WithClass wk cl $ traverse f tag
+    Custom name args tag -> f $ Custom name args $ f tag
     where
         traverseDef :: TermAndDefinition -> TermAndDefinition
         traverseDef (TAndD (Term termTag /\ Definition defTag)) =
@@ -729,6 +743,7 @@ instance Show Tag where
         Table headers rows -> wrap "table" $ (wrap "header" $ String.joinWith "," $ show <$> headers) <> "|" <> (wraplist "row" $ wraplist "column" <$> map show <$> rows)
         WithId wrapKind (ChunkId chunkId) tag -> wraparg2 "with-id" (show wrapKind) chunkId $ show tag
         WithClass wrapKind (ChunkClass chunkClass) tag -> wraparg2 "with-class" (show wrapKind) chunkClass $ show tag
+        Custom name args tag -> wraparg "custom" name $ show tag
         where
             just title = "(" <> title <> ")"
             wrap title v = "(" <> title <> ":" <> v <> ")"

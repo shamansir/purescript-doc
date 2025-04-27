@@ -72,6 +72,7 @@ instance Renderer Html where
         Pagebreak _ -> S.None
         WithId _ _ _ -> S.Full
         WithClass _ _ _ -> S.Full
+        Custom _ _ _ -> S.Full
 
     layout :: Proxy Html -> Tag -> Doc
     layout = const $ case _ of
@@ -159,6 +160,7 @@ instance Renderer Html where
         Pagebreak _ -> D.break <> D.break
         WithId wk (ChunkId chId) tag -> wrapAttr (tagByWrapKind wk) "id" chId tag
         WithClass wk (ChunkClass chClass) tag -> wrapAttr (tagByWrapKind wk) "class" chClass tag
+        Custom name attrs tag -> wrapAttrsE name attrs tag
         where
             -- b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
             indent (Indent n) = wrapS "div" ("margin-left:" <> show (n * 8) <> "px")
