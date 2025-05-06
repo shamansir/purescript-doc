@@ -116,6 +116,7 @@ data Bullet
     | Circle
     | Alpha
     | AlphaInv
+    | BCustom String
     -- ..
 
 
@@ -391,6 +392,7 @@ num = Num :: Bullet
 alpha = Alpha :: Bullet
 circle = Circle :: Bullet
 nalpha = AlphaInv :: Bullet
+bcustom = BCustom :: String -> Bullet
 
 
 list :: Tag -> Array Tag -> Tag
@@ -399,7 +401,6 @@ list = List Dash
 
 list_ :: Array Tag -> Tag
 list_ = List Dash Empty
-
 
 
 listb :: Bullet -> Tag -> Array Tag -> Tag
@@ -622,6 +623,7 @@ bulletPrefix index = case _ of
     Alpha ->    String.singleton (fromMaybe 'a' $ toEnum $ fromEnum 'a' + index) <> "."
     AlphaInv -> String.singleton (fromMaybe 'z' $ toEnum $ fromEnum 'z' - index) <> "."
     Num ->      String.singleton (fromMaybe '1' $ toEnum $ fromEnum '1' + index) <> "."
+    BCustom str -> str
 
 
 {-
@@ -771,6 +773,7 @@ instance Show Bullet where
     show Alpha = "alpha"
     show AlphaInv = "alphainv"
     show Num = "num"
+    show (BCustom str) = "custom:" <> str
 
 
 instance Show HLevel where

@@ -10,5 +10,6 @@ in conf // {
     , "newtype"
     , "aff"
     , "lists"
+    , "console"
     ]
 }

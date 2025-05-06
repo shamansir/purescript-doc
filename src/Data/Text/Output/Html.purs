@@ -139,6 +139,7 @@ instance Renderer Html where
                 Dash -> "'- '" -- "dash"
                 Num -> "decimal"
                 None -> "none"
+                BCustom str -> "'" <> str <> "'"
             ) $ D.stack $ wrap "li" <$> items
         Image (ImageParams params) (Url url) ->
             case params.width /\ params.height of

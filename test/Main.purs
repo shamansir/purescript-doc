@@ -13,6 +13,7 @@ import Test.Spec.Runner (runSpec)
 import Test.Formatting.Doc (spec) as FormattingDoc
 import Test.Formatting.Blessed (spec) as FormattingBlessed
 import Test.Formatting.Outputs (spec) as FormattingToOutputs
+import Test.Formatting.Dodo (spec) as FormattingToDodo
 
 
 main :: Effect Unit
@@ -23,3 +24,5 @@ main = launchAff_ $ runSpec [consoleReporter] do
     FormattingBlessed.spec
   describe "Formatting : Outputs" $ do
     FormattingToOutputs.spec
+  describe "Formatting : Dodo" $ do
+    FormattingToDodo.spec
