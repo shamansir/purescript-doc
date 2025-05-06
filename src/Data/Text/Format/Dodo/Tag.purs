@@ -15,7 +15,7 @@ import Data.String.CodeUnits (singleton) as String
 import Data.Tuple.Nested ((/\), type (/\))
 
 import Dodo (Doc, annotate) as Dodo
-import Dodo (text, space, break) as D
+import Dodo (text, space, break, enclose, foldWithSeparator, lines, paragraph, indent) as D
 
 
 type Tag = Dodo.Doc Directive -- it is called `Tag` For backward compatibility
@@ -149,7 +149,6 @@ data Directive
     | Image ImageParams Url
     | List Bullet Tag (Array Tag) -- The root `Tag`` is optional (if `Empty`) header of the list
     | DefList (Array TermAndDefinition)
-    -- | Table (Array (Tag /\ Array Tag))
     | Table (Array Tag) (Array (Array Tag))
     | WithId WrapKind ChunkId
     | WithClass WrapKind ChunkClass
@@ -181,7 +180,7 @@ s = plain
 
 
 plain :: String -> Tag
-plain = D.text
+plain = D.text -- TODO: preprocess for newlines and spaces first?
 
 
 lefts :: String -> Tag
@@ -272,14 +271,13 @@ invisible :: Tag -> Tag
 invisible = _tag $ Format Invisible
 
 
-{-
+
 wrap :: Tag -> Tag -> Tag -> Tag
-wrap = Wrap
+wrap = D.enclose
 
 
 wraps :: String -> String -> Tag -> Tag
-wraps l r = Wrap (Plain l) (Plain r)
--}
+wraps l r = wrap (plain l) (plain r)
 
 
 url :: String -> Url
@@ -419,15 +417,15 @@ listb = List
 
 listb_ :: Bullet -> Array Tag -> Tag
 listb_ bul = List bul Empty
+-}
 
 
 stack :: Array Tag -> Tag
-stack = Para
+stack = D.lines
 
 
 paras :: Array Tag -> Tag
-paras = joinWith blank
--}
+paras = D.paragraph -- Or `D.lines`?
 
 
 fgcs :: Color -> String -> Tag
@@ -472,22 +470,23 @@ nl :: Tag
 nl = D.break
 
 
-{-
 nest :: Int -> Array Tag -> Tag
-nest n = Nest $ Indent n
+nest n = indent n <<< D.lines
 
 
 indent :: Int -> Tag -> Tag
-indent n = nest n <<< singleton
+indent 0 = identity
+indent 1 = D.indent
+indent n | n < 0 = identity
+indent n | otherwise = indent $ n - 1
 
 
 group :: Array Tag -> Tag
-group = nest 0
+group = D.lines
 
 
 joinWith :: Tag -> Array Tag -> Tag
-joinWith = Join
--}
+joinWith = D.foldWithSeparator
 
 
 code :: String -> String -> Tag
@@ -520,10 +519,8 @@ space :: Tag
 space = D.space
 
 
-{-
 mark :: Tag -> Tag -> Tag
 mark m c = m <> space <> c
--}
 
 
 sub :: Tag -> Tag
@@ -544,7 +541,6 @@ pagebreak = _etag $ Pagebreak Nothing
 
 pagebreakAt :: Int -> Tag
 pagebreakAt = _etag <<< Pagebreak <<< Just
-
 
 
 id :: String -> Tag -> Tag
@@ -627,7 +623,6 @@ blank :: Tag
 blank = nl <> nl
 
 
-{-
 class Formatter a where
     format :: a -> Tag
 
@@ -647,7 +642,6 @@ bulletPrefix index = case _ of
     AlphaInv -> String.singleton (fromMaybe 'z' $ toEnum $ fromEnum 'z' - index) <> "."
     Num ->      String.singleton (fromMaybe '1' $ toEnum $ fromEnum '1' + index) <> "."
     BCustom str -> str
--}
 
 
 {-
@@ -780,7 +774,7 @@ instance Show Tag where
             wraplistarg title arg vals = "(" <> title <> "(" <> arg <> "):" <> String.joinWith "," vals <> ")"
             wraplistarg2 title arg1 arg2 vals = "(" <> title <> "(" <> arg1 <> "," <> arg2 <> "):" <> String.joinWith "," vals <> ")"
             -- tableitems t ts = show t <> ":" <> String.joinWith "," (show <$> ts)
-
+-}
 
 instance Show Align where
     show Left = "left"
@@ -838,7 +832,7 @@ instance Show Format where
         LinkTo (FootnoteId ftnId) -> case ftnId of
             E.Left intId -> "footnote:#" <> show intId
             E.Right strId -> "footnote:" <> strId
-        Define (Term term) -> "define:" <> show term
+        Define (Term term) -> "define:" -- FIXME <> show term
         Comment -> "comment"
         Fg ecolor ->
             "fg(" <> case ecolor of
@@ -849,9 +843,10 @@ instance Show Format where
                     E.Left colorStr -> show colorStr
                     E.Right color -> show color <> ")"
 
-
+{-
 instance Show TermAndDefinition where
     show (TAndD (Term term /\ Definition def)) = "(" <> show term <> " :: " <> show def <> ")"
+-}
 
 
 instance Show ImageSide where
@@ -862,4 +857,3 @@ instance Show ImageSide where
 
 instance Show ImageParams where
     show (ImageParams rec) = "{" <> show rec.width <> "x" <> show rec.height <> "," <> show rec.caption <> "}"
--}
