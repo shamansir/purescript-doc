@@ -15,17 +15,17 @@ import Data.String.CodeUnits (singleton) as String
 import Data.Tuple.Nested ((/\), type (/\))
 
 import Dodo (Doc, annotate) as Dodo
-import Dodo (Doc(..), text, space) as D
+import Dodo (text, space, break) as D
 
 
-type FDoc = Dodo.Doc Tag
+type Tag = Dodo.Doc Directive -- it is called `Tag` For backward compatibility
 
 
-_tag :: Tag -> FDoc -> FDoc
+_tag :: Directive -> Tag -> Tag
 _tag = Dodo.annotate
 
 
-_etag :: Tag -> FDoc
+_etag :: Directive -> Tag
 _etag t = _tag t $ mempty
 
 
@@ -34,8 +34,8 @@ newtype FootnoteId = FootnoteId (Either Int String)
 newtype Anchor = Anchor String
 newtype ProgrammingLanguage = ProgrammingLanguage String
 newtype Url = Url String
-newtype Term = Term FDoc
-newtype Definition = Definition FDoc
+newtype Term = Term Tag
+newtype Definition = Definition Tag
 newtype TermAndDefinition = TAndD (Term /\ Definition)
 newtype Caption = Caption String
 newtype ImageParams =
@@ -143,17 +143,14 @@ data WrapKind
     | Inline
 
 
-data Tag
-    = Empty
-    | Plain String
-    | Format Format
+data Directive
+    = Format Format
     | Align Align
-    | Newline
     | Image ImageParams Url
-    | List Bullet FDoc (Array FDoc) -- The root `Tag`` is optional (if `Empty`) header of the list
+    | List Bullet Tag (Array Tag) -- The root `Tag`` is optional (if `Empty`) header of the list
     | DefList (Array TermAndDefinition)
     -- | Table (Array (Tag /\ Array Tag))
-    | Table (Array FDoc) (Array (Array FDoc))
+    | Table (Array Tag) (Array (Array Tag))
     | WithId WrapKind ChunkId
     | WithClass WrapKind ChunkClass
     | Hr
@@ -171,116 +168,116 @@ data ImageSide -- FIXME: reuse come other type
 
 
 
-hr :: FDoc
+hr :: Tag
 hr = _etag Hr
 
 
-nil :: FDoc
+nil :: Tag
 nil = mempty
 
 
-s :: String -> FDoc
+s :: String -> Tag
 s = plain
 
 
-plain :: String -> FDoc
+plain :: String -> Tag
 plain = D.text
 
 
-lefts :: String -> FDoc
+lefts :: String -> Tag
 lefts = left <<< plain
 
 
-left :: FDoc -> FDoc
+left :: Tag -> Tag
 left = _tag $ Align Left
 
 
-rights :: String -> FDoc
+rights :: String -> Tag
 rights = right <<< plain
 
 
-right :: FDoc -> FDoc
+right :: Tag -> Tag
 right = _tag $ Align Right
 
 
-centers :: String -> FDoc
+centers :: String -> Tag
 centers = center <<< plain
 
 
-center :: FDoc -> FDoc
+center :: Tag -> Tag
 center = _tag $ Align Center
 
 
-bolds :: String -> FDoc
+bolds :: String -> Tag
 bolds = bold <<< plain
 
 
-bold :: FDoc -> FDoc
+bold :: Tag -> Tag
 bold = _tag $ Format Bold
 
 
-em :: FDoc -> FDoc
+em :: Tag -> Tag
 em = _tag $ Format Emphasis
 
 
-i :: FDoc -> FDoc
+i :: Tag -> Tag
 i = _tag $ Format Emphasis
 
 
-u :: FDoc -> FDoc
+u :: Tag -> Tag
 u = _tag $ Format Underline
 
 
-thru :: FDoc -> FDoc
+thru :: Tag -> Tag
 thru = _tag $ Format Strikethrough
 
 
-monos :: String -> FDoc
+monos :: String -> Tag
 monos = mono <<< plain
 
 
-mono :: FDoc -> FDoc
+mono :: Tag -> Tag
 mono = _tag $ Format Monospaced
 
 
-underlines :: String -> FDoc
+underlines :: String -> Tag
 underlines = underline <<< plain
 
 
-underline :: FDoc -> FDoc
+underline :: Tag -> Tag
 underline = _tag $ Format Underline
 
 
-blinks :: String -> FDoc
+blinks :: String -> Tag
 blinks = blink <<< plain
 
 
-blink :: FDoc -> FDoc
+blink :: Tag -> Tag
 blink = _tag $ Format Blink
 
 
-inverses :: String -> FDoc
+inverses :: String -> Tag
 inverses = inverse <<< plain
 
 
-inverse :: FDoc -> FDoc
+inverse :: Tag -> Tag
 inverse = _tag $ Format Inverse
 
 
-invisibles :: String -> FDoc
+invisibles :: String -> Tag
 invisibles = invisible <<< plain
 
 
-invisible :: FDoc -> FDoc
+invisible :: Tag -> Tag
 invisible = _tag $ Format Invisible
 
 
 {-
-wrap :: FDoc -> FDoc -> FDoc -> FDoc
+wrap :: Tag -> Tag -> Tag -> Tag
 wrap = Wrap
 
 
-wraps :: String -> String -> FDoc -> FDoc
+wraps :: String -> String -> Tag -> Tag
 wraps l r = Wrap (Plain l) (Plain r)
 -}
 
@@ -289,7 +286,7 @@ url :: String -> Url
 url = Url
 
 
-link :: Url -> FDoc -> FDoc
+link :: Url -> Tag -> Tag
 link = _tag <<< Format <<< Link
 
 
@@ -301,27 +298,27 @@ auto_ip :: ImageParams
 auto_ip = ImageParams { width : Auto, height : Auto, caption : Caption "" }
 
 
-img :: Url -> FDoc
+img :: Url -> Tag
 img = imgp auto_ip
 
 
-imgc :: Caption -> Url -> FDoc
+imgc :: Caption -> Url -> Tag
 imgc = imgp <<< cauto
 
 
-imgp :: ImageParams -> Url -> FDoc
+imgp :: ImageParams -> Url -> Tag
 imgp par = _etag <<< Image par
 
 
-iimg :: Url -> FDoc -> FDoc
+iimg :: Url -> Tag -> Tag
 iimg = iimgp auto_ip
 
 
-iimgc :: Caption -> Url -> FDoc -> FDoc
+iimgc :: Caption -> Url -> Tag -> Tag
 iimgc caption = iimgp $ ImageParams { width : Auto, height : Auto, caption  }
 
 
-iimgp :: ImageParams -> Url -> FDoc -> FDoc
+iimgp :: ImageParams -> Url -> Tag -> Tag
 iimgp par = _tag <<< Format <<< InlineImage par
 
 
@@ -337,44 +334,44 @@ cauto :: Caption -> ImageParams
 cauto caption = ImageParams { width : Auto, height : Auto, caption }
 
 
-ftn :: String -> FDoc -> FDoc
+ftn :: String -> Tag -> Tag
 ftn = _tag <<< Format <<< Footnote <<< FootnoteId <<< E.Right
 
 
-ftni :: Int -> FDoc -> FDoc
+ftni :: Int -> Tag -> Tag
 ftni = _tag <<< Format <<< Footnote <<< FootnoteId <<< E.Left
 
 
-to_ftn :: String -> FDoc -> FDoc
+to_ftn :: String -> Tag -> Tag
 to_ftn = _tag <<< Format <<< LinkTo <<< FootnoteId <<< E.Right
 
 
-to_ftni :: Int -> FDoc -> FDoc
+to_ftni :: Int -> Tag -> Tag
 to_ftni = _tag <<< Format <<< LinkTo <<< FootnoteId <<< E.Left
 
 
-h :: Int -> FDoc -> FDoc
+h :: Int -> Tag -> Tag
 h lvl = _tag <<< Format $ Header (hLevelFromInt lvl) Nothing
 
 
-h' :: Int -> String -> FDoc -> FDoc
+h' :: Int -> String -> Tag -> Tag
 h' lvl = _tag <<< Format <<< Header (hLevelFromInt lvl) <<< Just <<< Anchor
 
 
-h1 = h 1 :: FDoc -> FDoc
-h2 = h 2 :: FDoc -> FDoc
-h3 = h 3 :: FDoc -> FDoc
-h4 = h 4 :: FDoc -> FDoc
-h5 = h 5 :: FDoc -> FDoc
-h6 = h 6 :: FDoc -> FDoc
+h1 = h 1 :: Tag -> Tag
+h2 = h 2 :: Tag -> Tag
+h3 = h 3 :: Tag -> Tag
+h4 = h 4 :: Tag -> Tag
+h5 = h 5 :: Tag -> Tag
+h6 = h 6 :: Tag -> Tag
 
 
-h1' = h' 1 :: String -> FDoc -> FDoc
-h2' = h' 2 :: String -> FDoc -> FDoc
-h3' = h' 3 :: String -> FDoc -> FDoc
-h4' = h' 4 :: String -> FDoc -> FDoc
-h5' = h' 5 :: String -> FDoc -> FDoc
-h6' = h' 6 :: String -> FDoc -> FDoc
+h1' = h' 1 :: String -> Tag -> Tag
+h2' = h' 2 :: String -> Tag -> Tag
+h3' = h' 3 :: String -> Tag -> Tag
+h4' = h' 4 :: String -> Tag -> Tag
+h5' = h' 5 :: String -> Tag -> Tag
+h6' = h' 6 :: String -> Tag -> Tag
 
 
 {-
@@ -392,7 +389,7 @@ dl = DefList
 -}
 
 
-f :: Format -> FDoc -> FDoc
+f :: Format -> Tag -> Tag
 f = _tag <<< Format
 
 
@@ -433,35 +430,35 @@ paras = joinWith blank
 -}
 
 
-fgcs :: Color -> String -> FDoc
+fgcs :: Color -> String -> Tag
 fgcs c = fgc c <<< plain
 
 
-fgc :: Color -> FDoc -> FDoc
+fgc :: Color -> Tag -> Tag
 fgc = _tag <<< Format <<< Fg <<< E.Right
 
 
-fgs :: String -> String -> FDoc
+fgs :: String -> String -> Tag
 fgs cs = fg cs <<< plain
 
 
-fg :: String -> FDoc -> FDoc
+fg :: String -> Tag -> Tag
 fg = _tag <<< Format <<< Fg <<< E.Left
 
 
-bgcs :: Color -> String -> FDoc
+bgcs :: Color -> String -> Tag
 bgcs c = bgc c <<< plain
 
 
-bgc :: Color -> FDoc -> FDoc
+bgc :: Color -> Tag -> Tag
 bgc = _tag <<< Format <<< Bg <<< E.Right
 
 
-bgs :: String -> String -> FDoc
+bgs :: String -> String -> Tag
 bgs cs = bg cs <<< plain
 
 
-bg :: String -> FDoc -> FDoc
+bg :: String -> Tag -> Tag
 bg = _tag <<< Format <<< Bg <<< E.Left
 
 
@@ -471,8 +468,8 @@ split = Split
 -}
 
 
-nl :: FDoc
-nl = _etag Newline
+nl :: Tag
+nl = D.break
 
 
 {-
@@ -493,7 +490,7 @@ joinWith = Join
 -}
 
 
-code :: String -> String -> FDoc
+code :: String -> String -> Tag
 code pl = _tag (Format $ Code $ ProgrammingLanguage pl) <<< plain
 
 
@@ -507,11 +504,11 @@ table = tableh []
 -}
 
 
-quote :: FDoc -> FDoc
+quote :: Tag -> Tag
 quote = _tag $ Format $ Quote Nothing
 
 
-quote_by :: QuoteOf -> FDoc -> FDoc
+quote_by :: QuoteOf -> Tag -> Tag
 quote_by = _tag <<< Format <<< Quote <<< Just
 
 
@@ -519,7 +516,7 @@ of_ :: String -> QuoteOf
 of_ = QuoteOf
 
 
-space :: FDoc
+space :: Tag
 space = D.space
 
 
@@ -529,55 +526,56 @@ mark m c = m <> space <> c
 -}
 
 
-sub :: FDoc -> FDoc
+sub :: Tag -> Tag
 sub = _tag $ Format $ Sub
 
 
-sup :: FDoc -> FDoc
+sup :: Tag -> Tag
 sup = _tag $ Format $ Sup
 
 
 newpage :: Tag
-newpage = Newpage
+newpage = _etag Newpage
 
 
 pagebreak :: Tag
-pagebreak = Pagebreak Nothing
+pagebreak = _etag $ Pagebreak Nothing
 
 
 pagebreakAt :: Int -> Tag
-pagebreakAt = Pagebreak <<< Just
+pagebreakAt = _etag <<< Pagebreak <<< Just
 
 
 
-id :: String -> FDoc -> FDoc
+id :: String -> Tag -> Tag
 id = _tag <<< WithId Inline <<< ChunkId
 
 
-_class :: String -> FDoc -> FDoc
+_class :: String -> Tag -> Tag
 _class = _tag <<< WithClass Inline <<< ChunkClass
 
 
-bl_id :: String -> FDoc -> FDoc
+bl_id :: String -> Tag -> Tag
 bl_id = _tag <<< WithId Block <<< ChunkId
 
 
-bl_class :: String -> FDoc -> FDoc
+bl_class :: String -> Tag -> Tag
 bl_class = _tag <<< WithClass Block <<< ChunkClass
 
 
-custom :: String -> FDoc -> FDoc
+custom :: String -> Tag -> Tag
 custom name = _tag $ Custom name []
 
 
-custom_ :: String -> Array (String /\ String) -> FDoc -> FDoc
+custom_ :: String -> Array (String /\ String) -> Tag -> Tag
 custom_ name args = _tag $ Custom name args
 
-{-
+
 _null :: Tag -> Tag
 _null = identity -- to mark some tag with a plan to replace it with another one in future
 
 
+{-
 -- TODO: also convert to tree
 traverse :: (Tag -> Tag) -> Tag -> Tag
 traverse f = case _ of
@@ -619,6 +617,7 @@ levelDown :: Tag -> Tag
 levelDown = traverse $ case _ of
     Format (Header level anchor) tag -> Format (Header (fromMaybe bottom $ pred level) anchor) tag
     tag -> tag
+-}
 
 
 -- TODO: indent left / right
@@ -628,6 +627,7 @@ blank :: Tag
 blank = nl <> nl
 
 
+{-
 class Formatter a where
     format :: a -> Tag
 
