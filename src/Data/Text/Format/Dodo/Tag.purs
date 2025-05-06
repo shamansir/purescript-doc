@@ -3,7 +3,7 @@ module Data.Text.Format.Dodo.Tag where
 import Prelude
 
 import Color (Color)
-import Data.Array (singleton)
+import Data.Array (singleton, (:))
 import Data.Either (Either(..)) as E
 import Data.Either (Either)
 import Data.Bounded (top, bottom)
@@ -13,9 +13,10 @@ import Data.Newtype (class Newtype)
 import Data.String (joinWith) as String
 import Data.String.CodeUnits (singleton) as String
 import Data.Tuple.Nested ((/\), type (/\))
+import Data.FunctorWithIndex (mapWithIndex)
 
 import Dodo (Doc, annotate) as Dodo
-import Dodo (text, space, break, enclose, foldWithSeparator, lines, paragraph, indent) as D
+import Dodo (text, space, break, enclose, foldWith, foldWithSeparator, lines, paragraph, indent) as D
 
 
 type Tag = Dodo.Doc Directive -- it is called `Tag` For backward compatibility
@@ -106,7 +107,6 @@ data Format
     | Footnote FootnoteId
     | LinkTo FootnoteId
     | Code ProgrammingLanguage
-    | Define Term
     | Comment
     | FixedWidth
     | Sub
@@ -143,28 +143,48 @@ data WrapKind
     | Inline
 
 
+data TablePart
+    = TRoot
+    | THeaderRow
+    | THeaderCell
+    | THeaderSplit
+    | TRow
+    | TCell
+    | TRowSplit
+    | TCellSplit
+
+
+data ListPart
+    = LRoot
+    | LHeader
+    | LItem Bullet Int
+
+
+data DefListPart
+    = DLRoot
+    | DLTerm Int
+    | DLDefinition Int
+
+
 data Directive
     = Format Format
     | Align Align
     | Image ImageParams Url
-    | List Bullet Tag (Array Tag) -- The root `Tag`` is optional (if `Empty`) header of the list
-    | DefList (Array TermAndDefinition)
-    | Table (Array Tag) (Array (Array Tag))
+    | List ListPart
+    | DefList DefListPart
+    | Table TablePart
     | WithId WrapKind ChunkId
     | WithClass WrapKind ChunkClass
     | Hr
     | Newpage
     | Pagebreak (Maybe Int)
     | Custom String (Array (String /\ String))
+    -- TODO: comment block
 
 
--- TODO: binary operators for tags
--- TODO: empty tag
-
-data ImageSide -- FIXME: reuse come other type
+data ImageSide -- FIXME: reuse some other type
     = Auto
     | Px Int
-
 
 
 hr :: Tag
@@ -372,10 +392,9 @@ h5' = h' 5 :: String -> Tag -> Tag
 h6' = h' 6 :: String -> Tag -> Tag
 
 
-{-
 
-define :: String -> Tag -> Tag
-define = Format <<< Define <<< Term <<< Plain
+define :: String -> Tag -> Tag -- FIXME: should it be singleton or helper for constructing lists?
+define term def = dl [ TAndD $ Term (plain term) /\ Definition def ]
 
 
 dt :: Tag -> Tag -> TermAndDefinition
@@ -383,8 +402,14 @@ dt term def = TAndD $ Term term /\ Definition def
 
 
 dl :: Array TermAndDefinition -> Tag
-dl = DefList
--}
+dl items = _tag (DefList DLRoot)
+        $ D.lines
+        $ (D.foldWith (<>) <$> mapWithIndex defineInList items)
+    where
+        defineInList idx (TAndD (Term term /\ Definition def)) =
+            [ _tag (DefList $ DLTerm idx) term
+            , _tag (DefList $ DLDefinition idx) def
+            ]
 
 
 f :: Format -> Tag -> Tag
@@ -402,22 +427,33 @@ nalpha = AlphaInv :: Bullet
 bcustom = BCustom :: String -> Bullet
 
 
-{-
+
 list :: Tag -> Array Tag -> Tag
-list = List Dash
+list = listb Dash
 
 
 list_ :: Array Tag -> Tag
-list_ = List Dash Empty
+list_ = listb_ Dash
 
 
 listb :: Bullet -> Tag -> Array Tag -> Tag
-listb = List
+listb bullet = _list bullet <<< Just
 
 
 listb_ :: Bullet -> Array Tag -> Tag
-listb_ bul = List bul Empty
--}
+listb_ bul = _list bul Nothing
+
+
+_list :: Bullet -> Maybe Tag -> Array Tag -> Tag
+_list bullet mbHeader items =
+    _tag (List LRoot)
+        $ D.lines
+        $ case mbHeader of
+            Just header ->
+                _tag (List LHeader) header
+                : mapWithIndex (_tag <<< List <<< LItem bullet) items
+            Nothing ->
+                mapWithIndex (_tag <<< List <<< LItem bullet) items
 
 
 stack :: Array Tag -> Tag
@@ -460,12 +496,6 @@ bg :: String -> Tag -> Tag
 bg = _tag <<< Format <<< Bg <<< E.Left
 
 
-{-
-split :: Tag -> Tag -> Tag
-split = Split
--}
-
-
 nl :: Tag
 nl = D.break
 
@@ -493,14 +523,24 @@ code :: String -> String -> Tag
 code pl = _tag (Format $ Code $ ProgrammingLanguage pl) <<< plain
 
 
-{-
 tableh :: Array Tag -> Array (Array Tag) -> Tag
-tableh = Table
+tableh hcells rows =
+    _tag (Table TRoot)
+    $ D.lines
+        $ ( _tag (Table THeaderRow)
+            $ joinWith (_etag $ Table THeaderSplit)
+                $ (_tag $ Table THeaderCell)
+                <$> hcells
+            )
+        : (_tag (Table TRow)
+            <$> (joinWith (_etag $ Table TCellSplit)
+                <<< map (_tag $ Table TCell))
+                <$> rows
+            )
 
 
 table :: Array (Array Tag) -> Tag
 table = tableh []
--}
 
 
 quote :: Tag -> Tag
@@ -832,7 +872,6 @@ instance Show Format where
         LinkTo (FootnoteId ftnId) -> case ftnId of
             E.Left intId -> "footnote:#" <> show intId
             E.Right strId -> "footnote:" <> strId
-        Define (Term term) -> "define:" -- FIXME <> show term
         Comment -> "comment"
         Fg ecolor ->
             "fg(" <> case ecolor of

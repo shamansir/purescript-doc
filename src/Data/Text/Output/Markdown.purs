@@ -89,7 +89,7 @@ instance Renderer Markdown where
                 Comment -> D.bracket "<!--" (layout tag) "-->"
                 Footnote (FootnoteId (E.Left ftn)) -> D.bracket "[^" (D.text $ show ftn) "]" <> D.text ":" <> D.space <> layout tag
                 Footnote (FootnoteId (E.Right ftn)) -> D.bracket "[^" (D.text ftn) "]" <> D.text ":" <> D.space <> layout tag
-        Split tagA tagB ->layout tagA <> D.text "|" <> layout tagB
+        Split tagA tagB -> layout tagA <> D.text "|" <> layout tagB
         Align Left tag -> wrapS "div" "text-align:left" tag
         Align Right tag -> wrapS "div" "text-align:right" tag
         Align Center tag -> wrapS "div" "text-align:center" tag
