@@ -19,9 +19,18 @@ import Test.Spec (Spec, describe, it, itOnly)
 import Test.Spec.Assertions (shouldEqual)
 
 
+simplest :: Dodo.Doc F.Directive
+simplest =
+  F.bold $ D.words
+    [ D.text "bold1"
+    , F.em $ D.text "bold+em"
+    , D.text "bold2"
+    ]
+
+
 test1 :: Dodo.Doc F.Directive
 test1 =
-  F.fgc red $ F.thru  $ D.words
+  F.fgc red $ F.thru $ D.words
     [ D.text "This is"
     , F.fgc blue $ F.bold $ D.text "blue and bold"
     , F._null $ F.underline $ D.text "underlined text."
@@ -81,8 +90,11 @@ spec = do
 
   describe "Formatting works properly for Dodo" $ do
 
-    itOnly "1: should equal" $ do
-      Dodo.print FDodo.printer Dodo.twoSpaces test1 `shouldEqual` "AAA"
+    itOnly "0: should equal" $ do
+      Dodo.print FDodo.printer Dodo.twoSpaces simplest `shouldEqual` "AAA"
+
+    -- itOnly "1: should equal" $ do
+    --   Dodo.print FDodo.printer Dodo.twoSpaces test1 `shouldEqual` "AAA"
 
     -- it "2: should equal" $ do
     --   Dodo.print FDodo.printer Dodo.twoSpaces test2 `shouldEqual` "AAA"

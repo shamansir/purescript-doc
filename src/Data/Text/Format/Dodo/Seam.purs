@@ -12,13 +12,14 @@ type Markup = String
 
 data Seam
     = Nil
+    | Indent { width :: Int } Seam
     | Plain String
     | Markup Markup
     | Join Seam Seam
     | SurroundInline { left :: Markup, right :: Markup } Seam
     | SurroundBlock { above :: Markup, below :: Markup } Seam
     | Mark { marker :: Markup } Seam
-    | MarkBlock { marker :: Markup } (Array Seam)
+    | MarkBlock { marker :: Markup } (Array Seam) -- FIXME: one `Seam`, split by Newline
     | Space
     | Break
     | Tag { name :: String, attrs :: Array (String /\ String) } Seam
@@ -105,6 +106,7 @@ render = case _ of
     Nil -> ""
     Plain str -> str
     Markup str -> str
+    Indent { width } seam -> (String.joinWith "" $ Array.replicate width " ") <> render seam
     Mark { marker } seam -> marker <> " " <> render seam
     Join seamA seamB -> render seamA <> render seamB
     SurroundInline { left, right } seam ->
@@ -124,3 +126,29 @@ render = case _ of
                 ">"
                 <> render seam
                 <> "</" <> name <> ">"
+
+
+instance Show Seam where
+    show = case _ of
+        Nil -> "<nil>"
+        Space -> "<sp>"
+        Break -> "<br>"
+        Indent { width } seam -> "<ind:" <> show width <> "("<> show seam <>")>"
+        Mark { marker } seam -> "<mark:" <> show marker <> "("<> show seam <>")>"
+        MarkBlock { marker } seams -> "<mark-block:" <> show marker <> "("<> String.joinWith "," (show <$> seams) <>")>"
+        SurroundInline { left, right } seam ->
+            "<surrond:" <> show left <> "," <> show right <> "(" <> show seam <> ")"
+        SurroundBlock { above, below } seam ->
+            "<surrond-block:" <> show above <> "," <> show below <> "(" <> show seam <> ")"
+        Plain str ->
+            "<text(" <> str <> ")>"
+        Markup str ->
+            "<markup(" <> str <> ")>"
+        Join seamA seamB ->
+            "<concat(" <> show seamA <> "," <> show seamB <> ")>"
+        Tag { name, attrs } seam ->
+            case attrs of
+                [] -> "<tag:" <> name <> "(" <> show seam <> ")"
+                theAttrs ->
+                     "<tag:" <> name <> "..." <> "(" <> show seam <> ")"
+                        -- <> String.joinWith " " ((\(attrName /\ attrValue) -> attrName <> "=\"" <> attrValue <> "\"") <$> theAttrs) <>

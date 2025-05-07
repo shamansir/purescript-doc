@@ -759,60 +759,52 @@ instance Show WrapKind where
         Block -> "block"
         Inline -> "inline"
 
-{-
-instance Show DocWithFormat where
+
+
+instance Show Directive where
     show = case _ of
-        Empty -> just "empty"
-        Plain str -> wrap "plain" str
-        Align align tag -> wraparg "align" (show align) $ show tag
-        Format format tag -> case format of
-            Fg (E.Left colorStr) -> wraparg "fg" (show colorStr) $ show tag
-            Fg (E.Right color) -> wraparg "fg" (show color) $ show tag
-            Bg (E.Left colorStr) -> wraparg "bg" (show colorStr) $ show tag
-            Bg (E.Right color) -> wraparg "bg" (show color) $ show tag
-            Link (Url url) -> wraptag2 "link" (show tag) url
+        Align align -> wraparg "align" (show align)
+        Format format -> case format of
+            Fg (E.Left colorStr) -> wraparg "fg" (show colorStr)
+            Fg (E.Right color) -> wraparg "fg" (show color)
+            Bg (E.Left colorStr) -> wraparg "bg" (show colorStr)
+            Bg (E.Right color) -> wraparg "bg" (show color)
+            Link (Url url) -> wraparg "link" url
             LinkTo (FootnoteId ftnId) ->
                 case ftnId of
-                    E.Left ftnIntId -> wraptag2 "link" (show tag) $ wrap "ftn#" $ show ftnIntId
-                    E.Right ftnStrId -> wraptag2 "link" (show tag) $ wrap "ftn" $ ftnStrId
-            Define (Term term) -> let definition = tag in wraptag2 "def" (show term) $ show definition
-            Comment -> wrap "comment" $ show tag
+                    E.Left ftnIntId -> wraparg "link" $ wrap "ftn#" $ show ftnIntId
+                    E.Right ftnStrId -> wraparg "link" $ wrap "ftn" $ ftnStrId
+            -- Define (Term term) -> let definition = tag in wraptag2 "def" (show term) $ show definition
+            Comment -> just "comment"
             Footnote (FootnoteId ftnId) ->
                 case ftnId of
-                    E.Left ftnIntId -> wraparg "footnote" ("#" <> show ftnIntId) $ show tag
-                    E.Right ftnStrId -> wraparg "footnote" ftnStrId $ show tag
-            InlineImage imgParams (Url url) -> let title = tag in wraparg2 "image" (show title) (show imgParams) $ show url
-            _ -> wraparg "format" (show format) $ show tag
-        Split tag1 tag2 -> wraptag2 "split" (show tag1) $ show tag2
-        Pair tag1 tag2 -> wraptag2 "pair" (show tag1) $ show tag2
-        Para tags -> wraplist "para" $ show <$> tags
-        Newline -> just "nl"
+                    E.Left ftnIntId -> wraparg "footnote" ("#" <> show ftnIntId)
+                    E.Right ftnStrId -> wraparg "footnote" ftnStrId
+            InlineImage imgParams (Url url) -> wraptag2 "image" (show imgParams) $ show url
+            _ -> wraparg "format" $ show format
         Hr -> just "hr"
         Newpage -> just "newpage"
         Pagebreak mbPriority -> case mbPriority of
             Just n -> wrap "pagebreak" $ show n
             Nothing -> just "pagebreak"
-        Nest indent tags -> wraplistarg "nest" (show indent) $ show <$> tags
-        Join tag tags -> wraplistarg "join" (show tag) $ show <$> tags
-        Wrap start end tag -> wraparg2 "wrap" (show start) (show end) $ show tag
-        Image imgParams (Url url) -> wraparg "image" (show imgParams) $ show url
-        List bullet tag tags -> wraplistarg2 "list" (show bullet) (show tag) $ show <$> tags
-        DefList definitions -> wraplist "list" $ show <$> definitions
-        Table headers rows -> wrap "table" $ (wrap "header" $ String.joinWith "," $ show <$> headers) <> "|" <> (wraplist "row" $ wraplist "column" <$> map show <$> rows)
-        WithId wrapKind (ChunkId chunkId) tag -> wraparg2 "with-id" (show wrapKind) chunkId $ show tag
-        WithClass wrapKind (ChunkClass chunkClass) tag -> wraparg2 "with-class" (show wrapKind) chunkClass $ show tag
-        Custom name args tag -> wraparg "custom" name $ show tag
+        Image imgParams (Url url) -> wraptag2 "image" (show imgParams) $ show url
+        List bullet -> wraplistarg2 "list" "" ""
+        DefList definitions -> just "deflist"
+        Table item -> just "table"
+        WithId wrapKind (ChunkId chunkId) -> wraptag2 "with-id" (show wrapKind) chunkId
+        WithClass wrapKind (ChunkClass chunkClass) -> wraptag2 "with-class" (show wrapKind) chunkClass
+        Custom name args -> wraparg "custom" name
         where
             just title = "(" <> title <> ")"
             wrap title v = "(" <> title <> ":" <> v <> ")"
-            wraparg title arg v = "(" <> title <> "(" <> arg <> "):" <> v <> ")"
-            wraparg2 title arg1 arg2 v = "(" <> title <> "(" <> arg1 <> "," <> arg2 <> "):" <> v <> ")"
+            wraparg title arg = "(" <> title <> "(" <> arg <> ")"
+            -- wraparg2 title arg1 arg2 = "(" <> title <> "(" <> arg1 <> "," <> arg2 <> "):" <> v <> ")"
             wraptag2 title tag1 tag2 = "(" <> title <> ":" <> tag1 <> "," <> tag2 <> ")"
             wraplist title vals = "(" <> title <> ":" <> String.joinWith "," vals <> ")"
             wraplistarg title arg vals = "(" <> title <> "(" <> arg <> "):" <> String.joinWith "," vals <> ")"
-            wraplistarg2 title arg1 arg2 vals = "(" <> title <> "(" <> arg1 <> "," <> arg2 <> "):" <> String.joinWith "," vals <> ")"
+            wraplistarg2 title arg1 arg2 = "(" <> title <> "(" <> arg1 <> "," <> arg2 <> "))"
             -- tableitems t ts = show t <> ":" <> String.joinWith "," (show <$> ts)
--}
+
 
 instance Show Align where
     show Left = "left"
