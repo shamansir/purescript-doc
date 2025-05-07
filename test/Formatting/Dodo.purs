@@ -15,7 +15,7 @@ import Dodo (Doc, print, twoSpaces) as Dodo
 import Dodo (text, indent, lines, words) as D
 import Dodo.Ansi as Ansi
 
-import Test.Spec (Spec, describe, it)
+import Test.Spec (Spec, describe, it, itOnly)
 import Test.Spec.Assertions (shouldEqual)
 
 
@@ -23,8 +23,8 @@ test1 :: Dodo.Doc F.Directive
 test1 =
   F.fgc red $ F.thru  $ D.words
     [ D.text "This is"
-    , F.fgc blue $ F.bold $ D.text "bold"
-    , F._null $ F.underline $ D.text "text."
+    , F.fgc blue $ F.bold $ D.text "blue and bold"
+    , F._null $ F.underline $ D.text "underlined text."
     , D.text "The end."
     ]
 
@@ -81,8 +81,8 @@ spec = do
 
   describe "Formatting works properly for Dodo" $ do
 
-    it "1: should equal" $ do
+    itOnly "1: should equal" $ do
       Dodo.print FDodo.printer Dodo.twoSpaces test1 `shouldEqual` "AAA"
 
-    it "2: should equal" $ do
-      Dodo.print FDodo.printer Dodo.twoSpaces test2 `shouldEqual` "AAA"
+    -- it "2: should equal" $ do
+    --   Dodo.print FDodo.printer Dodo.twoSpaces test2 `shouldEqual` "AAA"

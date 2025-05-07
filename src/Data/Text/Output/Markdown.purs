@@ -6,12 +6,13 @@ import Color as Color
 
 import Type.Proxy (Proxy(..))
 
-import Data.Array (intersperse, mapWithIndex) as Array
+import Data.Array (intersperse, mapWithIndex, replicate) as Array
 import Data.Tuple (uncurry)
-import Data.Tuple.Nested ((/\))
+import Data.Tuple.Nested ((/\), type (/\))
 import Data.Maybe (Maybe(..))
 import Data.Either (Either(..)) as E
 import Data.Newtype (unwrap)
+import Data.String (joinWith) as String
 
 import Data.Text.Format
     ( Tag(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
@@ -20,9 +21,17 @@ import Data.Text.Format
     , bulletPrefix, hLevelToInt)
 import Data.Text.Output (layout) as O
 import Data.Text.Output (OutputKind, class Renderer, Support)
-import Data.Text.Output (Support(..)) as S
+import Data.Text.Output (Support(..)) as Sup
 import Data.Text.Doc (Doc)
 import Data.Text.Doc as D
+
+
+import Data.Text.Format.Dodo.Format
+    ( Directive(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
+    , Url(..), HLevel(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..)
+    , ImageParams(..), ImageSide(..), QuoteOf(..)
+    , hLevelToInt ) as X
+import Data.Text.Format.Dodo.Seam as S
 
 
 foreign import data Markdown :: OutputKind
@@ -39,7 +48,7 @@ instance Renderer Markdown where
 
     supported :: Proxy Markdown -> Tag -> Support
     supported _ = case _ of
-        _ -> S.Full -- FIXME
+        _ -> Sup.Full -- FIXME
 
     layout :: Proxy Markdown -> Tag -> Doc
     layout = const $ case _ of
@@ -137,3 +146,103 @@ instance Renderer Markdown where
             wrapS htmlTag = wrapAttr htmlTag "style"
             def (TAndD (Term term /\ Definition definition)) = layout term <> D.break <> (D.mark ": " $ layout definition)
             inlineBlockStyle = "style" /\ "display:inline-block"
+
+
+directiveRule :: forall content. (content -> S.Seam) -> X.Directive -> (content -> S.Seam)
+directiveRule layoutS = case _ of
+    X.Format format ->
+        case format of
+            X.Fg (E.Left colorStr) -> htmlTagWithStyle "span" $ "color:" <> colorStr
+            X.Fg (E.Right color) -> htmlTagWithStyle "span" $ "color:" <> Color.toHexString color
+            X.Bg (E.Left colorStr) -> htmlTagWithStyle "span" $ "background-color:" <> colorStr
+            X.Bg (E.Right color) -> htmlTagWithStyle "span" $ "background-color:" <> Color.toHexString color
+            X.Header hLevel mbAnchor ->
+                \content ->
+                    (S.markup $ replicate (X.hLevelToInt hLevel) "#") <> S.space <> layoutS content <> case mbAnchor of
+                        Just (X.Anchor anchor) -> S.space <> bracketSWith "{#" "}" anchor
+                        Nothing -> S.nil
+            X.Bold -> wrapWith "**"
+            X.Emphasis -> wrapWith "*"
+            X.Highlight -> wrapWith "=="
+            X.Underline -> wrapWith "__"
+            X.Strikethrough -> wrapWith "~~"
+            X.Monospaced -> wrapWith "```"
+            X.Verbatim -> embraceWith "```"
+            X.FixedWidth -> embraceWith "```"
+            X.Code (X.ProgrammingLanguage lang) -> surroundWith ("```" <> lang) "```"
+            X.Quote mbAuthor ->
+                \content ->
+                    (S.mark ">" $ layoutS content) <>
+                        case mbAuthor of
+                            Just (X.QuoteOf author) -> S.space <> (S.mark "--" $ S.text author) -- D.break <> (D.mark ">" $ D.mark "--" $ D.text author)
+                            Nothing -> S.nil
+                        -- TODO: split by \n and append `>` for every line
+            X.Sub -> wrapWith "~"
+            X.Sup -> wrapWith "^"
+            X.Blink -> htmlTag "blink" []
+            X.Inverse -> htmlTag "inverse" []
+            X.Invisible -> htmlTagWithStyle "span" "display:none"
+            {-
+            X.Define (Term dt) ->
+                \content -> layout dt <> D.break <> S.mark ":" $ layoutS content
+            -}
+            X.LinkTo (X.FootnoteId (E.Left ftn))  -> \content -> layoutS content <> S.space <> S.bracket "[^" (S.markup $ show ftn) "]"
+            X.LinkTo (X.FootnoteId (E.Right ftn)) -> \content -> layoutS content <> S.space <> S.bracket "[^" (S.markup ftn) "]"
+            X.Link (X.Url url) -> \content -> S.bracket "[" (layoutS content) "]" <> S.bracket "(" (S.markup url) ")"
+            X.InlineImage (X.ImageParams params) (X.Url url) ->
+                case params.width /\ params.height of
+                    X.Auto /\ X.Auto -> \content -> S.bracket "![" (layoutS content) "]" <> S.bracket "(" (S.markup url) ")" -- FIXME: use caption for the title
+                    X.Px wpx /\ X.Px hpx -> htmlTag "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ show hpx, "alt" /\ unwrap params.caption, inlineBlockStyle ]
+                    X.Px wpx /\ X.Auto ->   htmlTag "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ "auto", "alt" /\ unwrap params.caption, inlineBlockStyle ]
+                    X.Auto /\ X.Px hpx ->   htmlTag "img" [ "src" /\ url, "width" /\ "auto", "height" /\ show hpx, "alt" /\ unwrap params.caption, inlineBlockStyle ]
+            X.Comment -> bracketWith "<!--" "-->"
+            X.Footnote (X.FootnoteId (E.Left ftn)) ->  \content -> S.bracket "[^" (S.markup $ show ftn) "]" <> S.markup ":" <> S.space <> layoutS content
+            X.Footnote (X.FootnoteId (E.Right ftn)) -> \content -> S.bracket "[^" (S.markup ftn)        "]" <> S.markup ":" <> S.space <> layoutS content
+    X.Align X.Left   -> htmlTagWithStyle "div" "text-align:left"
+    X.Align X.Right  -> htmlTagWithStyle "div" "text-align:right"
+    X.Align X.Center -> htmlTagWithStyle "div" "text-align:center"
+    X.List part ->
+        const S.nil -- FIXME: TODO
+        -- D.nest' 0 $ -- FIXME: support levels from `Nest`
+        --     [ layout start
+        --     , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
+        --     ]
+    X.DefList definitions ->
+        const S.nil -- FIXME: TODO
+        -- D.joinWith (D.break <> D.break) $ def <$> definitions
+    X.Table part ->
+        const S.nil -- FIXME: TODO
+        -- wrap' "table"
+        --     $ (wrap' "thead" $ D.stack $ wrap "th" <$> headers)
+        --     <> D.break <> D.stack (wrap' "tr" <$> D.stack <$> map (wrap "td") <$> rows)
+    X.Image (X.ImageParams params) (X.Url url) ->
+        case params.width /\ params.height of
+            X.Auto /\ X.Auto ->     \content -> S.bracket "![" (S.text $ unwrap params.caption) "]" <> S.bracket "(" (S.markup url) ")"
+            X.Px wpx /\ X.Px hpx -> htmlTag "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ show hpx, "alt" /\ unwrap params.caption ]
+            X.Px wpx /\ X.Auto ->   htmlTag "img" [ "src" /\ url, "width" /\ show wpx, "height" /\ "auto",   "alt" /\ unwrap params.caption ]
+            X.Auto /\ X.Px hpx ->   htmlTag "img" [ "src" /\ url, "width" /\ "auto",   "height" /\ show hpx, "alt" /\ unwrap params.caption ]
+    X.Hr ->
+        const $ S.markup "---------"
+    X.Newpage -> const $ S.break <> S.break
+    X.Pagebreak _ -> const $ S.break <> S.break
+    X.WithId _ _ -> layoutS -- FIXME, implement with Markdown Extensions
+    X.WithClass _ _ -> layoutS-- FIXME, implement with Markdown Extensions
+    X.Custom _ _ -> layoutS -- FIXME
+    where
+        htmlTag name attrs content = S.tag name attrs $ layoutS content
+        htmlTagWithStyle name style = htmlTag name [ "style" /\ style ]
+        inlineBlockStyle = "style" /\ "display:inline-block"
+
+        wrapWith marker  = S.wrap marker <<< layoutS
+
+        embraceWith marker  = S.embrace marker <<< layoutS
+
+        bracketWith markerL markerR  = S.bracket_ markerL markerR <<< layoutS
+        bracketSWith markerL markerR = S.bracket_ markerL markerR <<< S.text
+
+        surroundWith markerL markerR  = S.surround_ markerL markerR <<< layoutS
+
+        replicate n = String.joinWith "" <<< Array.replicate n
+
+        def (TAndD (Term term /\ Definition definition)) = layout term <> D.break <> (D.mark ": " $ layout definition)
+        b bullet (index /\ doc) = bulletPrefix index bullet /\ doc
