@@ -16,6 +16,7 @@ to generate this file without the comments in this block.
   , "bifunctors"
   , "colors"
   , "datetime"
+  , "debug"
   , "dodo-printer"
   , "effect"
   , "either"

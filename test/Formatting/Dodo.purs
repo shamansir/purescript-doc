@@ -2,45 +2,48 @@ module Test.Formatting.Dodo where
 
 import Prelude
 
-import Color as Color
+import Color (Color)
+import Color (rgb) as Color
 
 import Effect (Effect)
 import Effect.Class.Console as Console
 
-import Data.Text.Format as F
-import Data.Text.Format.Dodo as FDodo
+import Data.Text.Format.Dodo.Format as F
+import Data.Text.Format.Dodo.Printer as FDodo
 
 import Dodo (Doc, print, twoSpaces) as Dodo
-import Dodo (text, indent, lines, annotate, words) as D
+import Dodo (text, indent, lines, words) as D
 import Dodo.Ansi as Ansi
 
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
-test1 :: Dodo.Doc F.Tag
+
+test1 :: Dodo.Doc F.Directive
 test1 =
-  D.annotate (F.fgc (Color.rgb 255 0 0) $ F.s "Red")
-    $ D.annotate (F.thru $ F.s "Thru") $ D.words
+  F.fgc red $ F.thru  $ D.words
     [ D.text "This is"
-    , D.annotate (F.fgc (Color.rgb 0 0 255) $ F.s "Blue")
-        $ D.annotate (F.bold $ F.s "foo") $ D.text "bold"
-    , D.annotate (F.underline $ F.s "Underline") $ D.text "text."
+    , F.fgc blue $ F.bold $ D.text "bold"
+    , F._null $ F.underline $ D.text "text."
     , D.text "The end."
     ]
 
 
-test2 :: Dodo.Doc F.Tag
+yellow = Color.rgb 0 255 255 :: Color
+red = Color.rgb 255 0 0 :: Color
+blue = Color.rgb 0 0 255 :: Color
+
+
+test2 :: Dodo.Doc F.Directive
 test2 =
   D.lines
     [ D.text "Line with no style"
-    , D.annotate
-        (F.bgc (Color.rgb 255 255 0) $ F.s "YellowTest")
-        $ D.annotate (F.bold $ F.s "BoldTest") $ D.lines
-            [ D.annotate (F.thru $ F.s "Haha") $ D.text "strikethrough"
-            , D.indent $ D.annotate (F.fgc (Color.rgb 255 0 0) $ F.s "Red")
+    , F.bgc yellow $ F.bold $ D.lines
+            [ F.thru $ D.text "strikethrough"
+            , D.indent $ F.fgc red
               $ D.lines
                 [ D.text "Red"
-                , D.annotate F.hr $ D.text "Lines"
+                , F._null $ D.text "Lines"
                 , D.text "And bold"
                 ]
             ]

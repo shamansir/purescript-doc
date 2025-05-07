@@ -1,4 +1,4 @@
-module Data.Text.Format.Dodo.Tag where
+module Data.Text.Format.Dodo.Format where
 
 import Prelude
 
@@ -19,24 +19,26 @@ import Dodo (Doc, annotate) as Dodo
 import Dodo (text, space, break, enclose, foldWith, foldWithSeparator, lines, paragraph, indent) as D
 
 
-type Tag = Dodo.Doc Directive -- it is called `Tag` For backward compatibility
+type Tag = DocWithFormat -- it is called `Tag` For backward compatibility
 
 
-_tag :: Directive -> Tag -> Tag
+type DocWithFormat = Dodo.Doc Directive
+
+
+_tag :: Directive -> DocWithFormat -> DocWithFormat
 _tag = Dodo.annotate
 
 
-_etag :: Directive -> Tag
+_etag :: Directive -> DocWithFormat
 _etag t = _tag t $ mempty
 
 
-newtype Indent = Indent Int
 newtype FootnoteId = FootnoteId (Either Int String)
 newtype Anchor = Anchor String
 newtype ProgrammingLanguage = ProgrammingLanguage String
 newtype Url = Url String
-newtype Term = Term Tag
-newtype Definition = Definition Tag
+newtype Term = Term DocWithFormat
+newtype Definition = Definition DocWithFormat
 newtype TermAndDefinition = TAndD (Term /\ Definition)
 newtype Caption = Caption String
 newtype ImageParams =
@@ -48,7 +50,6 @@ newtype ImageParams =
 newtype QuoteOf = QuoteOf String
 
 
-derive instance Newtype Indent _
 derive instance Newtype FootnoteId _
 derive instance Newtype Anchor _
 derive instance Newtype ProgrammingLanguage _
@@ -61,12 +62,9 @@ derive instance Newtype ImageParams _
 derive instance Newtype QuoteOf _
 
 
-derive newtype instance Show Indent
 derive newtype instance Show FootnoteId
 derive newtype instance Show Anchor
 derive newtype instance Show ProgrammingLanguage
--- derive newtype instance Show Term
--- derive newtype instance Show Definition
 derive newtype instance Show Caption
 derive newtype instance Show QuoteOf
 
@@ -187,116 +185,116 @@ data ImageSide -- FIXME: reuse some other type
     | Px Int
 
 
-hr :: Tag
+hr :: DocWithFormat
 hr = _etag Hr
 
 
-nil :: Tag
+nil :: DocWithFormat
 nil = mempty
 
 
-s :: String -> Tag
+s :: String -> DocWithFormat
 s = plain
 
 
-plain :: String -> Tag
+plain :: String -> DocWithFormat
 plain = D.text -- TODO: preprocess for newlines and spaces first?
 
 
-lefts :: String -> Tag
+lefts :: String -> DocWithFormat
 lefts = left <<< plain
 
 
-left :: Tag -> Tag
+left :: DocWithFormat -> DocWithFormat
 left = _tag $ Align Left
 
 
-rights :: String -> Tag
+rights :: String -> DocWithFormat
 rights = right <<< plain
 
 
-right :: Tag -> Tag
+right :: DocWithFormat -> DocWithFormat
 right = _tag $ Align Right
 
 
-centers :: String -> Tag
+centers :: String -> DocWithFormat
 centers = center <<< plain
 
 
-center :: Tag -> Tag
+center :: DocWithFormat -> DocWithFormat
 center = _tag $ Align Center
 
 
-bolds :: String -> Tag
+bolds :: String -> DocWithFormat
 bolds = bold <<< plain
 
 
-bold :: Tag -> Tag
+bold :: DocWithFormat -> DocWithFormat
 bold = _tag $ Format Bold
 
 
-em :: Tag -> Tag
+em :: DocWithFormat -> DocWithFormat
 em = _tag $ Format Emphasis
 
 
-i :: Tag -> Tag
+i :: DocWithFormat -> DocWithFormat
 i = _tag $ Format Emphasis
 
 
-u :: Tag -> Tag
+u :: DocWithFormat -> DocWithFormat
 u = _tag $ Format Underline
 
 
-thru :: Tag -> Tag
+thru :: DocWithFormat -> DocWithFormat
 thru = _tag $ Format Strikethrough
 
 
-monos :: String -> Tag
+monos :: String -> DocWithFormat
 monos = mono <<< plain
 
 
-mono :: Tag -> Tag
+mono :: DocWithFormat -> DocWithFormat
 mono = _tag $ Format Monospaced
 
 
-underlines :: String -> Tag
+underlines :: String -> DocWithFormat
 underlines = underline <<< plain
 
 
-underline :: Tag -> Tag
+underline :: DocWithFormat -> DocWithFormat
 underline = _tag $ Format Underline
 
 
-blinks :: String -> Tag
+blinks :: String -> DocWithFormat
 blinks = blink <<< plain
 
 
-blink :: Tag -> Tag
+blink :: DocWithFormat -> DocWithFormat
 blink = _tag $ Format Blink
 
 
-inverses :: String -> Tag
+inverses :: String -> DocWithFormat
 inverses = inverse <<< plain
 
 
-inverse :: Tag -> Tag
+inverse :: DocWithFormat -> DocWithFormat
 inverse = _tag $ Format Inverse
 
 
-invisibles :: String -> Tag
+invisibles :: String -> DocWithFormat
 invisibles = invisible <<< plain
 
 
-invisible :: Tag -> Tag
+invisible :: DocWithFormat -> DocWithFormat
 invisible = _tag $ Format Invisible
 
 
 
-wrap :: Tag -> Tag -> Tag -> Tag
+wrap :: DocWithFormat -> DocWithFormat -> DocWithFormat -> DocWithFormat
 wrap = D.enclose
 
 
-wraps :: String -> String -> Tag -> Tag
+wraps :: String -> String -> DocWithFormat -> DocWithFormat
 wraps l r = wrap (plain l) (plain r)
 
 
@@ -304,7 +302,7 @@ url :: String -> Url
 url = Url
 
 
-link :: Url -> Tag -> Tag
+link :: Url -> DocWithFormat -> DocWithFormat
 link = _tag <<< Format <<< Link
 
 
@@ -316,27 +314,27 @@ auto_ip :: ImageParams
 auto_ip = ImageParams { width : Auto, height : Auto, caption : Caption "" }
 
 
-img :: Url -> Tag
+img :: Url -> DocWithFormat
 img = imgp auto_ip
 
 
-imgc :: Caption -> Url -> Tag
+imgc :: Caption -> Url -> DocWithFormat
 imgc = imgp <<< cauto
 
 
-imgp :: ImageParams -> Url -> Tag
+imgp :: ImageParams -> Url -> DocWithFormat
 imgp par = _etag <<< Image par
 
 
-iimg :: Url -> Tag -> Tag
+iimg :: Url -> DocWithFormat -> DocWithFormat
 iimg = iimgp auto_ip
 
 
-iimgc :: Caption -> Url -> Tag -> Tag
+iimgc :: Caption -> Url -> DocWithFormat -> DocWithFormat
 iimgc caption = iimgp $ ImageParams { width : Auto, height : Auto, caption  }
 
 
-iimgp :: ImageParams -> Url -> Tag -> Tag
+iimgp :: ImageParams -> Url -> DocWithFormat -> DocWithFormat
 iimgp par = _tag <<< Format <<< InlineImage par
 
 
@@ -352,56 +350,56 @@ cauto :: Caption -> ImageParams
 cauto caption = ImageParams { width : Auto, height : Auto, caption }
 
 
-ftn :: String -> Tag -> Tag
+ftn :: String -> DocWithFormat -> DocWithFormat
 ftn = _tag <<< Format <<< Footnote <<< FootnoteId <<< E.Right
 
 
-ftni :: Int -> Tag -> Tag
+ftni :: Int -> DocWithFormat -> DocWithFormat
 ftni = _tag <<< Format <<< Footnote <<< FootnoteId <<< E.Left
 
 
-to_ftn :: String -> Tag -> Tag
+to_ftn :: String -> DocWithFormat -> DocWithFormat
 to_ftn = _tag <<< Format <<< LinkTo <<< FootnoteId <<< E.Right
 
 
-to_ftni :: Int -> Tag -> Tag
+to_ftni :: Int -> DocWithFormat -> DocWithFormat
 to_ftni = _tag <<< Format <<< LinkTo <<< FootnoteId <<< E.Left
 
 
-h :: Int -> Tag -> Tag
+h :: Int -> DocWithFormat -> DocWithFormat
 h lvl = _tag <<< Format $ Header (hLevelFromInt lvl) Nothing
 
 
-h' :: Int -> String -> Tag -> Tag
+h' :: Int -> String -> DocWithFormat -> DocWithFormat
 h' lvl = _tag <<< Format <<< Header (hLevelFromInt lvl) <<< Just <<< Anchor
 
 
-h1 = h 1 :: Tag -> Tag
-h2 = h 2 :: Tag -> Tag
-h3 = h 3 :: Tag -> Tag
-h4 = h 4 :: Tag -> Tag
-h5 = h 5 :: Tag -> Tag
-h6 = h 6 :: Tag -> Tag
+h1 = h 1 :: DocWithFormat -> DocWithFormat
+h2 = h 2 :: DocWithFormat -> DocWithFormat
+h3 = h 3 :: DocWithFormat -> DocWithFormat
+h4 = h 4 :: DocWithFormat -> DocWithFormat
+h5 = h 5 :: DocWithFormat -> DocWithFormat
+h6 = h 6 :: DocWithFormat -> DocWithFormat
 
 
-h1' = h' 1 :: String -> Tag -> Tag
-h2' = h' 2 :: String -> Tag -> Tag
-h3' = h' 3 :: String -> Tag -> Tag
-h4' = h' 4 :: String -> Tag -> Tag
-h5' = h' 5 :: String -> Tag -> Tag
-h6' = h' 6 :: String -> Tag -> Tag
+h1' = h' 1 :: String -> DocWithFormat -> DocWithFormat
+h2' = h' 2 :: String -> DocWithFormat -> DocWithFormat
+h3' = h' 3 :: String -> DocWithFormat -> DocWithFormat
+h4' = h' 4 :: String -> DocWithFormat -> DocWithFormat
+h5' = h' 5 :: String -> DocWithFormat -> DocWithFormat
+h6' = h' 6 :: String -> DocWithFormat -> DocWithFormat
 
 
 
-define :: String -> Tag -> Tag -- FIXME: should it be singleton or helper for constructing lists?
+define :: String -> DocWithFormat -> DocWithFormat -- FIXME: should it be singleton or helper for constructing lists?
 define term def = dl [ TAndD $ Term (plain term) /\ Definition def ]
 
 
-dt :: Tag -> Tag -> TermAndDefinition
+dt :: DocWithFormat -> DocWithFormat -> TermAndDefinition
 dt term def = TAndD $ Term term /\ Definition def
 
 
-dl :: Array TermAndDefinition -> Tag
+dl :: Array TermAndDefinition -> DocWithFormat
 dl items = _tag (DefList DLRoot)
         $ D.lines
         $ (D.foldWith (<>) <$> mapWithIndex defineInList items)
@@ -412,7 +410,7 @@ dl items = _tag (DefList DLRoot)
             ]
 
 
-f :: Format -> Tag -> Tag
+f :: Format -> DocWithFormat -> DocWithFormat
 f = _tag <<< Format
 
 
@@ -428,23 +426,23 @@ bcustom = BCustom :: String -> Bullet
 
 
 
-list :: Tag -> Array Tag -> Tag
+list :: DocWithFormat -> Array DocWithFormat -> DocWithFormat
 list = listb Dash
 
 
-list_ :: Array Tag -> Tag
+list_ :: Array DocWithFormat -> DocWithFormat
 list_ = listb_ Dash
 
 
-listb :: Bullet -> Tag -> Array Tag -> Tag
+listb :: Bullet -> DocWithFormat -> Array DocWithFormat -> DocWithFormat
 listb bullet = _list bullet <<< Just
 
 
-listb_ :: Bullet -> Array Tag -> Tag
+listb_ :: Bullet -> Array DocWithFormat -> DocWithFormat
 listb_ bul = _list bul Nothing
 
 
-_list :: Bullet -> Maybe Tag -> Array Tag -> Tag
+_list :: Bullet -> Maybe DocWithFormat -> Array DocWithFormat -> DocWithFormat
 _list bullet mbHeader items =
     _tag (List LRoot)
         $ D.lines
@@ -456,74 +454,74 @@ _list bullet mbHeader items =
                 mapWithIndex (_tag <<< List <<< LItem bullet) items
 
 
-stack :: Array Tag -> Tag
+stack :: Array DocWithFormat -> DocWithFormat
 stack = D.lines
 
 
-paras :: Array Tag -> Tag
+paras :: Array DocWithFormat -> DocWithFormat
 paras = D.paragraph -- Or `D.lines`?
 
 
-fgcs :: Color -> String -> Tag
+fgcs :: Color -> String -> DocWithFormat
 fgcs c = fgc c <<< plain
 
 
-fgc :: Color -> Tag -> Tag
+fgc :: Color -> DocWithFormat -> DocWithFormat
 fgc = _tag <<< Format <<< Fg <<< E.Right
 
 
-fgs :: String -> String -> Tag
+fgs :: String -> String -> DocWithFormat
 fgs cs = fg cs <<< plain
 
 
-fg :: String -> Tag -> Tag
+fg :: String -> DocWithFormat -> DocWithFormat
 fg = _tag <<< Format <<< Fg <<< E.Left
 
 
-bgcs :: Color -> String -> Tag
+bgcs :: Color -> String -> DocWithFormat
 bgcs c = bgc c <<< plain
 
 
-bgc :: Color -> Tag -> Tag
+bgc :: Color -> DocWithFormat -> DocWithFormat
 bgc = _tag <<< Format <<< Bg <<< E.Right
 
 
-bgs :: String -> String -> Tag
+bgs :: String -> String -> DocWithFormat
 bgs cs = bg cs <<< plain
 
 
-bg :: String -> Tag -> Tag
+bg :: String -> DocWithFormat -> DocWithFormat
 bg = _tag <<< Format <<< Bg <<< E.Left
 
 
-nl :: Tag
+nl :: DocWithFormat
 nl = D.break
 
 
-nest :: Int -> Array Tag -> Tag
+nest :: Int -> Array DocWithFormat -> DocWithFormat
 nest n = indent n <<< D.lines
 
 
-indent :: Int -> Tag -> Tag
+indent :: Int -> DocWithFormat -> DocWithFormat
 indent 0 = identity
 indent 1 = D.indent
 indent n | n < 0 = identity
 indent n | otherwise = indent $ n - 1
 
 
-group :: Array Tag -> Tag
+group :: Array DocWithFormat -> DocWithFormat
 group = D.lines
 
 
-joinWith :: Tag -> Array Tag -> Tag
+joinWith :: DocWithFormat -> Array DocWithFormat -> DocWithFormat
 joinWith = D.foldWithSeparator
 
 
-code :: String -> String -> Tag
+code :: String -> String -> DocWithFormat
 code pl = _tag (Format $ Code $ ProgrammingLanguage pl) <<< plain
 
 
-tableh :: Array Tag -> Array (Array Tag) -> Tag
+tableh :: Array DocWithFormat -> Array (Array DocWithFormat) -> DocWithFormat
 tableh hcells rows =
     _tag (Table TRoot)
     $ D.lines
@@ -539,15 +537,15 @@ tableh hcells rows =
             )
 
 
-table :: Array (Array Tag) -> Tag
+table :: Array (Array DocWithFormat) -> DocWithFormat
 table = tableh []
 
 
-quote :: Tag -> Tag
+quote :: DocWithFormat -> DocWithFormat
 quote = _tag $ Format $ Quote Nothing
 
 
-quote_by :: QuoteOf -> Tag -> Tag
+quote_by :: QuoteOf -> DocWithFormat -> DocWithFormat
 quote_by = _tag <<< Format <<< Quote <<< Just
 
 
@@ -555,65 +553,65 @@ of_ :: String -> QuoteOf
 of_ = QuoteOf
 
 
-space :: Tag
+space :: DocWithFormat
 space = D.space
 
 
-mark :: Tag -> Tag -> Tag
+mark :: DocWithFormat -> DocWithFormat -> DocWithFormat
 mark m c = m <> space <> c
 
 
-sub :: Tag -> Tag
+sub :: DocWithFormat -> DocWithFormat
 sub = _tag $ Format $ Sub
 
 
-sup :: Tag -> Tag
+sup :: DocWithFormat -> DocWithFormat
 sup = _tag $ Format $ Sup
 
 
-newpage :: Tag
+newpage :: DocWithFormat
 newpage = _etag Newpage
 
 
-pagebreak :: Tag
+pagebreak :: DocWithFormat
 pagebreak = _etag $ Pagebreak Nothing
 
 
-pagebreakAt :: Int -> Tag
+pagebreakAt :: Int -> DocWithFormat
 pagebreakAt = _etag <<< Pagebreak <<< Just
 
 
-id :: String -> Tag -> Tag
+id :: String -> DocWithFormat -> DocWithFormat
 id = _tag <<< WithId Inline <<< ChunkId
 
 
-_class :: String -> Tag -> Tag
+_class :: String -> DocWithFormat -> DocWithFormat
 _class = _tag <<< WithClass Inline <<< ChunkClass
 
 
-bl_id :: String -> Tag -> Tag
+bl_id :: String -> DocWithFormat -> DocWithFormat
 bl_id = _tag <<< WithId Block <<< ChunkId
 
 
-bl_class :: String -> Tag -> Tag
+bl_class :: String -> DocWithFormat -> DocWithFormat
 bl_class = _tag <<< WithClass Block <<< ChunkClass
 
 
-custom :: String -> Tag -> Tag
+custom :: String -> DocWithFormat -> DocWithFormat
 custom name = _tag $ Custom name []
 
 
-custom_ :: String -> Array (String /\ String) -> Tag -> Tag
+custom_ :: String -> Array (String /\ String) -> DocWithFormat -> DocWithFormat
 custom_ name args = _tag $ Custom name args
 
 
-_null :: Tag -> Tag
+_null :: DocWithFormat -> DocWithFormat
 _null = identity -- to mark some tag with a plan to replace it with another one in future
 
 
 {-
 -- TODO: also convert to tree
-traverse :: (Tag -> Tag) -> Tag -> Tag
+traverse :: (DocWithFormat -> DocWithFormat) -> DocWithFormat -> DocWithFormat
 traverse f = case _ of
     Format format tag -> f $ Format format $ traverse f tag
     Align align tag -> f $ Align align $ traverse f tag
@@ -623,7 +621,7 @@ traverse f = case _ of
     Wrap tagA tagB tagC -> f $ Wrap (traverse f tagA) (traverse f tagB) (traverse f tagC)
     Para tags -> f $ Para $ traverse f <$> tags
     Nest indent tags -> f $ Nest indent $ traverse f <$> tags
-    List bullet hTag tags -> f $ List bullet (traverse f hTag) $ traverse f <$> tags
+    List bullet hDocWithFormat tags -> f $ List bullet (traverse f hDocWithFormat) $ traverse f <$> tags
     Table headers cells -> f $ Table (traverse f <$> headers) (map (traverse f) <$> cells)
     DefList defs -> f $ DefList $ traverseDef <$> defs
     Image params url -> f $ Image params url
@@ -638,18 +636,18 @@ traverse f = case _ of
     Custom name args tag -> f $ Custom name args $ f tag
     where
         traverseDef :: TermAndDefinition -> TermAndDefinition
-        traverseDef (TAndD (Term termTag /\ Definition defTag)) =
-             TAndD $ Term (traverse f termTag) /\ Definition (traverse f defTag)
+        traverseDef (TAndD (Term termDocWithFormat /\ Definition defDocWithFormat)) =
+             TAndD $ Term (traverse f termDocWithFormat) /\ Definition (traverse f defDocWithFormat)
 
 
 
-levelUp :: Tag -> Tag
+levelUp :: DocWithFormat -> DocWithFormat
 levelUp = traverse $ case _ of
     Format (Header level anchor) tag -> Format (Header (fromMaybe top $ succ level) anchor) tag
     tag -> tag
 
 
-levelDown :: Tag -> Tag
+levelDown :: DocWithFormat -> DocWithFormat
 levelDown = traverse $ case _ of
     Format (Header level anchor) tag -> Format (Header (fromMaybe bottom $ pred level) anchor) tag
     tag -> tag
@@ -659,15 +657,15 @@ levelDown = traverse $ case _ of
 -- TODO: indent left / right
 
 
-blank :: Tag
+blank :: DocWithFormat
 blank = nl <> nl
 
 
 class Formatter a where
-    format :: a -> Tag
+    format :: a -> DocWithFormat
 
 
-instance Formatter Tag where
+instance Formatter DocWithFormat where
     format = identity
 
 
@@ -762,7 +760,7 @@ instance Show WrapKind where
         Inline -> "inline"
 
 {-
-instance Show Tag where
+instance Show DocWithFormat where
     show = case _ of
         Empty -> just "empty"
         Plain str -> wrap "plain" str
