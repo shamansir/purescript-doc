@@ -19,17 +19,21 @@ import Test.Spec (Spec, describe, it, itOnly)
 import Test.Spec.Assertions (shouldEqual)
 
 
-simplest :: Dodo.Doc F.Directive
-simplest =
-  F.bold $ D.words
-    [ D.text "justbold"
-    , F.em $ D.text "boldem"
-    , D.text "justbold2"
+testA :: Dodo.Doc F.Directive
+testA =
+  D.words
+    [ D.text "pre"
+    , F.bold $ D.words
+      [ D.text "bold"
+      , F.underline $ D.text "bold&under"
+      , D.text "bold2"
+      ]
+    , D.text "post"
     ]
 
 
-test1 :: Dodo.Doc F.Directive
-test1 =
+testB :: Dodo.Doc F.Directive
+testB =
   F.fgc red $ F.thru $ D.words
     [ D.text "This is"
     , F.fgc blue $ F.bold $ D.text "blue and bold"
@@ -43,8 +47,8 @@ red = Color.rgb 255 0 0 :: Color
 blue = Color.rgb 0 0 255 :: Color
 
 
-test2 :: Dodo.Doc F.Directive
-test2 =
+testC :: Dodo.Doc F.Directive
+testC =
   D.lines
     [ D.text "Line with no style"
     , F.bgc yellow $ F.bold $ D.lines
@@ -59,6 +63,7 @@ test2 =
     ]
 
 
+{-
 test1Ansi :: Dodo.Doc Ansi.GraphicsParam
 test1Ansi =
   Ansi.foreground Ansi.Red $ Ansi.strikethrough $ D.words
@@ -83,6 +88,10 @@ test2Ansi =
         , D.text "The end."
         ]
     ]
+-}
+
+qTest :: Dodo.Doc F.Directive -> String
+qTest = Dodo.print FDodo.printer Dodo.twoSpaces
 
 
 spec :: Spec Unit
@@ -90,8 +99,31 @@ spec = do
 
   describe "Formatting works properly for Dodo" $ do
 
-    itOnly "0: should equal" $ do
-      Dodo.print FDodo.printer Dodo.twoSpaces simplest `shouldEqual` "AAA"
+    -- itOnly "0: simple text" $ do
+    --   qTest (D.text "pre") `shouldEqual` "pre"
+
+    -- itOnly "1: only formatted text" $ do
+    --   qTest (F.bold $ D.text "bold") `shouldEqual` "**bold**"
+    --   qTest (F.underline $ D.text "under") `shouldEqual` "__under__"
+
+    -- itOnly "2: formatted text after usual text" $ do
+    --   qTest (D.text "smth" <> (F.bold $ D.text "bold")) `shouldEqual` "smth**bold**"
+    --   qTest (D.text "smth" <> (F.underline $ D.text "under")) `shouldEqual` "smth__under__"
+
+    -- itOnly "3: formatted text before usual text" $ do
+    --   qTest ((F.bold $ D.text "bold") <> D.text "smth") `shouldEqual` "**bold**smth"
+    --   qTest ((F.underline $ D.text "under") <> D.text "smth") `shouldEqual` "__under__smth"
+
+    itOnly "4: formatted inside formatted" $ do
+      qTest (F.bold $ F.underline $ D.text "bold&under") `shouldEqual` "**__bold&under__**"
+      qTest (F.underline $ F.bold $ D.text "bold&under") `shouldEqual` "__**bold&under**__"
+
+    -- itOnly "5: formatted inside formatted, extended" $ do
+    --   qTest (F.bold      (D.text "bold-start"  <> (F.underline $ D.text "bold&under") <> D.text "bold-end") ) `shouldEqual` "**bold-start__bold&under__bold-end**"
+    --   qTest (F.underline (D.text "under-start" <> (F.bold      $ D.text "bold&under") <> D.text "under-end")) `shouldEqual` "__under-start**bold&under**under-end__"
+
+    -- itOnly "4: complex test A" $ do
+    --   qTest testA `shouldEqual` "pre **bold __bold&under__ bold2** post"
 
     -- itOnly "1: should equal" $ do
     --   Dodo.print FDodo.printer Dodo.twoSpaces test1 `shouldEqual` "AAA"

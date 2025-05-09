@@ -8,6 +8,7 @@ in conf // {
     , "either"
     , "foldable-traversable"
     , "newtype"
+    , "ordered-collections"
     , "aff"
     , "lists"
     , "console"

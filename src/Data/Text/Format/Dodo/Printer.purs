@@ -8,7 +8,7 @@ import Data.List (List, (:))
 import Data.List as List
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Text.Format.Dodo.Format (Directive) as F
 import Data.Text.Format.Dodo.Seam as F
 import Data.Text.Output.Markdown as Markdown
@@ -51,6 +51,10 @@ printer = addDebugTrace $ Dodo.Printer
     , enterAnnotation : \tag tags buff ->
         buff
             { deep = buff.deep + 1
+            , content = Map.delete buff.deep buff.content
+            , result = case Map.lookup buff.deep buff.content of
+                Just content -> buff.result <> content
+                Nothing -> buff.result
             }
     , leaveAnnotation : \tag tags buff ->
         buff
@@ -61,15 +65,19 @@ printer = addDebugTrace $ Dodo.Printer
                 Nothing -> buff.result
             }
     , writeBreak : \buff ->
-        buff { content = Map.update (\content -> Just $ content <> F.break) buff.deep buff.content }
+        buff { content = Map.alter (\mbContent -> Just $ maybe (F.break) (flip append F.break) mbContent) buff.deep buff.content }
         -- buff { content = buff.content <> F.break }
     , writeIndent : \width str buff ->
-        buff { content = Map.update (\content -> Just $ content <> F.text str) buff.deep buff.content }
+        buff { content = Map.alter (\mbContent -> Just $ maybe (F.text str) (flip append $ F.text str) mbContent) buff.deep buff.content }
         -- buff { content = buff.content <> F.text str }
     , writeText : \width str buff ->
-        buff { content = Map.update (\content -> Just $ content <> F.text str) buff.deep buff.content }
+        buff { content = Map.alter (\mbContent -> Just $ maybe (F.text str) (flip append $ F.text str) mbContent) buff.deep buff.content }
         -- buff { content = buff.content <> F.text str }
-    , flushBuffer : _.result >>> F.render
+    , flushBuffer : \buff ->
+        case Map.lookup 0 buff.content of
+            Just content -> buff.result <> content
+            Nothing -> buff.result
+        # F.render
     }
 
 
