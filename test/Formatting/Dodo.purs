@@ -22,9 +22,9 @@ import Test.Spec.Assertions (shouldEqual)
 simplest :: Dodo.Doc F.Directive
 simplest =
   F.bold $ D.words
-    [ D.text "bold1"
-    , F.em $ D.text "bold+em"
-    , D.text "bold2"
+    [ D.text "justbold"
+    , F.em $ D.text "boldem"
+    , D.text "justbold2"
     ]
 
 

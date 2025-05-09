@@ -4,9 +4,11 @@ import Prelude
 
 import Debug as Debug
 
-import Data.List (List)
+import Data.List (List, (:))
 import Data.List as List
-import Data.Maybe (Maybe(..))
+import Data.Map (Map)
+import Data.Map as Map
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Text.Format.Dodo.Format (Directive) as F
 import Data.Text.Format.Dodo.Seam as F
 import Data.Text.Output.Markdown as Markdown
@@ -16,18 +18,16 @@ import Dodo (Printer(..)) as Dodo
 
 type Buffer =
     { result :: F.Seam
-    , entered :: List F.Directive
     , deep :: Int
-    , content :: F.Seam
+    , content :: Map Int F.Seam
     }
 
 
 initBuffer :: Buffer
 initBuffer =
     { result : F.nil
-    , entered : List.Nil
     , deep : 0
-    , content : F.nil
+    , content : Map.empty
     }
 
 -- directiveRule :: forall content. (content -> S.Seam) -> X.Directive -> (content -> S.Seam)
@@ -41,35 +41,34 @@ applyTree :: F.Directive -> Array F.Seam -> F.Seam
 applyTree = Markdown.directiveRule F.join
 
 
+withLast :: forall a. List a -> (a -> a) -> List a
+withLast list f = fromMaybe list $ List.modifyAt (List.length list - 1) f list
+
+
 printer :: Dodo.Printer Buffer F.Directive String
 printer = addDebugTrace $ Dodo.Printer
     { emptyBuffer : initBuffer
     , enterAnnotation : \tag tags buff ->
         buff
-            { entered = List.snoc buff.entered tag
-            , deep = buff.deep + 1
+            { deep = buff.deep + 1
             }
     , leaveAnnotation : \tag tags buff ->
-        if (buff.deep > 1)
-            then
-                buff
-                    { entered = List.dropEnd 1 buff.entered
-                    , deep = buff.deep - 1
-                    , content = buff.content <> apply tag buff.content
-                    }
-            else
-                buff
-                    { entered = List.Nil
-                    , deep = 0
-                    , content = F.nil
-                    , result = buff.result <> apply tag buff.content
-                    }
+        buff
+            { deep = max (buff.deep - 1) 0
+            , content = Map.delete buff.deep buff.content
+            , result = case Map.lookup buff.deep buff.content of
+                Just content -> buff.result <> apply tag content
+                Nothing -> buff.result
+            }
     , writeBreak : \buff ->
-        buff { content = buff.content <> F.break }
+        buff { content = Map.update (\content -> Just $ content <> F.break) buff.deep buff.content }
+        -- buff { content = buff.content <> F.break }
     , writeIndent : \width str buff ->
-        buff { content = buff.content <> F.text str }
+        buff { content = Map.update (\content -> Just $ content <> F.text str) buff.deep buff.content }
+        -- buff { content = buff.content <> F.text str }
     , writeText : \width str buff ->
-        buff { content = buff.content <> F.text str }
+        buff { content = Map.update (\content -> Just $ content <> F.text str) buff.deep buff.content }
+        -- buff { content = buff.content <> F.text str }
     , flushBuffer : _.result >>> F.render
     }
 
@@ -85,6 +84,7 @@ addDebugTrace (Dodo.Printer printer) =
                 _ = Debug.spy "directive-enter: buff" $ show buff
                 v = printer.enterAnnotation tag tags buff
                 _ = Debug.spy "directive-enter: return" $ show v
+                _ = Debug.spy "--------" "--------"
             in v
         , leaveAnnotation : \tag tags buff ->
             let
@@ -93,12 +93,14 @@ addDebugTrace (Dodo.Printer printer) =
                 _ = Debug.spy "directive-leave: buff" $ show buff
                 v = printer.leaveAnnotation tag tags buff
                 _ = Debug.spy "directive-leave: return" $ show v
+                _ = Debug.spy "--------" "--------"
             in v
         , writeBreak : \buff ->
             let
                 _ = Debug.spy "writeBreak: buff" $ show buff
                 v = printer.writeBreak buff
                 _ = Debug.spy "writeBreak: return" $ show v
+                _ = Debug.spy "--------" "--------"
             in v
         , writeIndent : \width str buff ->
             let
@@ -107,6 +109,7 @@ addDebugTrace (Dodo.Printer printer) =
                 _ = Debug.spy "writeIndent: buff" $ show buff
                 v = printer.writeIndent width str buff
                 _ = Debug.spy "writeIndent: return" $ show v
+                _ = Debug.spy "--------" "--------"
             in v
         , writeText : \width str buff ->
             let
@@ -115,11 +118,13 @@ addDebugTrace (Dodo.Printer printer) =
                 _ = Debug.spy "writeText: buff" $ show buff
                 v = printer.writeText width str buff
                 _ = Debug.spy "writeText: return" $ show v
+                _ = Debug.spy "--------" "--------"
             in v
         , flushBuffer : \buff ->
             let
                 _ = Debug.spy "flushBuffer: buff" $ show buff
                 v = printer.flushBuffer buff
                 _ = Debug.spy "flushBuffer: return" v
+                _ = Debug.spy "--------" "--------"
             in v
         }
