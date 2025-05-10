@@ -9,75 +9,80 @@ import Data.List as List
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.String (joinWith) as String
+import Data.Tuple.Nested ((/\), type (/\))
 import Data.Text.Format.Dodo.Format (Directive) as F
-import Data.Text.Format.Dodo.Seam as F
+-- import Data.Text.Format.Dodo.Seam as F
+import Data.Text.Format.Dodo.SeamAlt as SA
 import Data.Text.Output.Markdown as Markdown
 
 import Dodo (Printer(..)) as Dodo
 
 
-type Buffer =
-    { result :: F.Seam
-    , deep :: Int
-    , content :: Map Int F.Seam
-    }
+type Buffer = String
 
 
 initBuffer :: Buffer
-initBuffer =
-    { result : F.nil
-    , deep : 0
-    , content : Map.empty
-    }
+initBuffer = ""
 
 -- directiveRule :: forall content. (content -> S.Seam) -> X.Directive -> (content -> S.Seam)
-
-
-apply :: F.Directive -> F.Seam -> F.Seam
-apply = Markdown.directiveRule identity
-
-
-applyTree :: F.Directive -> Array F.Seam -> F.Seam
-applyTree = Markdown.directiveRule F.join
 
 
 withLast :: forall a. List a -> (a -> a) -> List a
 withLast list f = fromMaybe list $ List.modifyAt (List.length list - 1) f list
 
 
+applyStart :: F.Directive -> String
+applyStart = Markdown.directiveRuleAlt >>> case _ of
+    SA.Nil -> ""
+    SA.Single markup -> markup
+    -- SA.IndentBefore
+    SA.SurroundInline { spaced, left } ->
+        if spaced then left <> " " else left
+    SA.SurroundBlock { above } ->
+        above <> "\n"
+    SA.Mark { marker, spaced } ->
+        if spaced then marker <> " " else marker
+    SA.HtmlTag { name, attrs } ->
+        case attrs of
+            [] -> "<" <> name <> ">"
+            theAttrs ->
+                "<" <> name <> " "
+                    <> String.joinWith " " ((\(attrName /\ attrValue) -> attrName <> "=\"" <> attrValue <> "\"") <$> theAttrs) <>
+                ">"
+
+
+applyEnd :: F.Directive -> String
+applyEnd = Markdown.directiveRuleAlt >>> case _ of
+    SA.Nil -> ""
+    SA.Single _ -> ""
+    -- SA.IndentBefore
+    SA.SurroundInline { spaced, right } ->
+        if spaced then " " <> right else right
+    SA.SurroundBlock { below } ->
+        "\n" <> below
+    SA.Mark { marker, spaced } ->
+        ""
+    SA.HtmlTag { name, attrs } ->
+        "</" <> name <> ">"
+
+
 printer :: Dodo.Printer Buffer F.Directive String
 printer = addDebugTrace $ Dodo.Printer
     { emptyBuffer : initBuffer
     , enterAnnotation : \tag tags buff ->
-        buff
-            { deep = buff.deep + 1
-            , content = Map.delete buff.deep buff.content
-            , result = case Map.lookup buff.deep buff.content of
-                Just content -> buff.result <> content
-                Nothing -> buff.result
-            }
+        buff <> applyStart tag
     , leaveAnnotation : \tag tags buff ->
-        buff
-            { deep = max (buff.deep - 1) 0
-            , content = Map.delete buff.deep buff.content
-            , result = case Map.lookup buff.deep buff.content of
-                Just content -> buff.result <> apply tag content
-                Nothing -> buff.result
-            }
+        buff <> applyEnd tag
     , writeBreak : \buff ->
-        buff { content = Map.alter (\mbContent -> Just $ maybe (F.break) (flip append F.break) mbContent) buff.deep buff.content }
+        buff <> "\n"
         -- buff { content = buff.content <> F.break }
     , writeIndent : \width str buff ->
-        buff { content = Map.alter (\mbContent -> Just $ maybe (F.text str) (flip append $ F.text str) mbContent) buff.deep buff.content }
-        -- buff { content = buff.content <> F.text str }
+        buff <> str
     , writeText : \width str buff ->
-        buff { content = Map.alter (\mbContent -> Just $ maybe (F.text str) (flip append $ F.text str) mbContent) buff.deep buff.content }
+        buff <> str
         -- buff { content = buff.content <> F.text str }
-    , flushBuffer : \buff ->
-        case Map.lookup 0 buff.content of
-            Just content -> buff.result <> content
-            Nothing -> buff.result
-        # F.render
+    , flushBuffer : identity
     }
 
 
