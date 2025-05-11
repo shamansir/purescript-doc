@@ -4,6 +4,8 @@ import Prelude
 
 import Debug as Debug
 
+import Type.Proxy (Proxy(..))
+
 import Data.List (List, (:))
 import Data.List as List
 import Data.Map (Map)
@@ -11,19 +13,23 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (joinWith) as String
 import Data.Tuple.Nested ((/\), type (/\))
+
+import Data.Text.Output (OutputKind)
 import Data.Text.Format.Dodo.Format (Directive) as F
--- import Data.Text.Format.Dodo.Seam as F
-import Data.Text.Format.Dodo.SeamAlt as SA
+import Data.Text.Format.Dodo.WrapRule as WR
+import Data.Text.Format.Dodo.Renderer as DD
 import Data.Text.Output.Markdown as Markdown
 
-import Dodo (Printer(..)) as Dodo
+import Dodo (Printer(..), Doc) as Dodo
+import Dodo (text, break, indent) as DD
+import Dodo.Internal (Doc(..)) as DD
 
 
-type Buffer = String
+type Buffer a = Dodo.Doc a
 
 
-initBuffer :: Buffer
-initBuffer = ""
+initBuffer :: forall a. Buffer a
+initBuffer = DD.Empty
 
 -- directiveRule :: forall content. (content -> S.Seam) -> X.Directive -> (content -> S.Seam)
 
@@ -32,55 +38,20 @@ withLast :: forall a. List a -> (a -> a) -> List a
 withLast list f = fromMaybe list $ List.modifyAt (List.length list - 1) f list
 
 
-applyStart :: F.Directive -> String
-applyStart = Markdown.directiveRuleAlt >>> case _ of
-    SA.Nil -> ""
-    SA.Single markup -> markup
-    -- SA.IndentBefore
-    SA.SurroundInline { spaced, left } ->
-        if spaced then left <> " " else left
-    SA.SurroundBlock { above } ->
-        above <> "\n"
-    SA.Mark { marker, spaced } ->
-        if spaced then marker <> " " else marker
-    SA.HtmlTag { name, attrs } ->
-        case attrs of
-            [] -> "<" <> name <> ">"
-            theAttrs ->
-                "<" <> name <> " "
-                    <> String.joinWith " " ((\(attrName /\ attrValue) -> attrName <> "=\"" <> attrValue <> "\"") <$> theAttrs) <>
-                ">"
-
-
-applyEnd :: F.Directive -> String
-applyEnd = Markdown.directiveRuleAlt >>> case _ of
-    SA.Nil -> ""
-    SA.Single _ -> ""
-    -- SA.IndentBefore
-    SA.SurroundInline { spaced, right } ->
-        if spaced then " " <> right else right
-    SA.SurroundBlock { below } ->
-        "\n" <> below
-    SA.Mark { marker, spaced } ->
-        ""
-    SA.HtmlTag { name, attrs } ->
-        "</" <> name <> ">"
-
-
-printer :: Dodo.Printer Buffer F.Directive String
-printer = addDebugTrace $ Dodo.Printer
+printer :: forall (x :: OutputKind) a. DD.Renderer x => Proxy x -> Dodo.Printer (Buffer a) F.Directive (Dodo.Doc a)
+printer _ = Dodo.Printer
     { emptyBuffer : initBuffer
     , enterAnnotation : \tag tags buff ->
-        buff <> applyStart tag
+        buff <> (WR.applyStart $ Markdown.directiveRule tag)
     , leaveAnnotation : \tag tags buff ->
-        buff <> applyEnd tag
+        buff <> (WR.applyEnd   $ Markdown.directiveRule tag)
     , writeBreak : \buff ->
-        buff <> "\n"
+        buff <> DD.break
         -- buff { content = buff.content <> F.break }
     , writeIndent : \width str buff ->
-        buff <> str
+        buff <> DD.indent (DD.text str)
     , writeText : \width str buff ->
-        buff <> str
+        buff <> DD.text str
         -- buff { content = buff.content <> F.text str }
     , flushBuffer : identity
     }
