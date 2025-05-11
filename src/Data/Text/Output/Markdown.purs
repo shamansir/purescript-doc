@@ -28,8 +28,8 @@ import Data.Text.Doc as D
 import Data.Text.Format.Dodo.Format
     ( Directive(..), Format(..), Align(..), Term(..), Definition(..), TermAndDefinition(..)
     , Url(..), HLevel(..), Anchor(..), FootnoteId(..), ProgrammingLanguage(..)
-    , ImageParams(..), ImageSide(..), QuoteOf(..)
-    , hLevelToInt ) as X
+    , ImageParams(..), ImageSide(..), QuoteOf(..), ListPart(..), DefListPart(..)
+    , bulletPrefix, hLevelToInt ) as X
 import Data.Text.Format.Dodo.WrapRule as WR
 import Dodo (Doc) as Dodo
 import Dodo.Internal (Doc(..)) as DD
@@ -210,16 +210,19 @@ directiveRule = case _ of
     X.Align X.Left   -> htmlTagWithStyle "div" "text-align:left"
     X.Align X.Right  -> htmlTagWithStyle "div" "text-align:right"
     X.Align X.Center -> htmlTagWithStyle "div" "text-align:center"
-    X.List part ->
+    X.List X.LRoot ->
+        WR.Nil
+    X.List X.LHeader ->
+        WR.Nil
+    X.List (X.LItem bul idx) ->
+        -- TODO: indent the second paragraphs in the list etc.
+        prefixD $ {- DD.indent <> -} (DD.text $ X.bulletPrefix idx bul) <> DD.space
+    X.DefList X.DLRoot ->
         WR.Nil -- FIXME: TODO
-        -- D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
-        -- D.nest' 0 $ -- FIXME: support levels from `Nest`
-        --     [ layout start
-        --     , D.nest' 1 $ uncurry D.mark <$> b bullet <$> Array.mapWithIndex (/\) (layout <$> items)
-        --     ]
-    X.DefList definitions ->
-        WR.Nil -- FIXME: TODO
-        -- D.joinWith (D.break <> D.break) $ def <$> definitions
+    X.DefList (X.DLTerm idx) ->
+        postfixD DD.break
+    X.DefList (X.DLDefinition idx) ->
+        prefixD $ DD.text ":" <> DD.space
     X.Table part ->
         WR.Nil -- FIXME: TODO
         -- wrap' "table"
@@ -245,6 +248,12 @@ directiveRule = case _ of
 
         single = WR.Single <<< DD.text
         singleD = WR.Single
+
+        prefix marker  = WR.SurroundInline { left : DD.text marker, right : mempty }
+        prefixD marker = WR.SurroundInline { left : marker, right : mempty }
+
+        postfix marker  = WR.SurroundInline { left : mempty, right : DD.text marker }
+        postfixD marker = WR.SurroundInline { left : mempty, right : marker }
 
         wrapWith marker              = WR.SurroundInline { left : DD.text marker,  right : DD.text marker  }
         bracketWith markerL markerR  = WR.SurroundInline { left : DD.text markerL, right : DD.text markerR }

@@ -20,7 +20,7 @@ import Data.Text.Format.Dodo.WrapRule as WR
 import Data.Text.Format.Dodo.Renderer as DD
 import Data.Text.Output.Markdown as Markdown
 
-import Dodo (Printer(..), Doc) as Dodo
+import Dodo (Printer(..), Doc, print, plainText, twoSpaces) as Dodo
 import Dodo (text, break, indent) as DD
 import Dodo.Internal (Doc(..)) as DD
 
@@ -39,12 +39,12 @@ withLast list f = fromMaybe list $ List.modifyAt (List.length list - 1) f list
 
 
 printer :: forall (x :: OutputKind) a. DD.Renderer x => Proxy x -> Dodo.Printer (Buffer a) F.Directive (Dodo.Doc a)
-printer _ = Dodo.Printer
+printer pout = Dodo.Printer
     { emptyBuffer : initBuffer
     , enterAnnotation : \tag tags buff ->
-        buff <> (WR.applyStart $ Markdown.directiveRule tag)
+        buff <> (WR.applyStart $ DD.render pout tag)
     , leaveAnnotation : \tag tags buff ->
-        buff <> (WR.applyEnd   $ Markdown.directiveRule tag)
+        buff <> (WR.applyEnd   $ DD.render pout tag)
     , writeBreak : \buff ->
         buff <> DD.break
         -- buff { content = buff.content <> F.break }
@@ -53,6 +53,7 @@ printer _ = Dodo.Printer
     , writeText : \width str buff ->
         buff <> DD.text str
         -- buff { content = buff.content <> F.text str }
+    -- , flushBuffer : Dodo.print Dodo.plainText Dodo.twoSpaces
     , flushBuffer : identity
     }
 

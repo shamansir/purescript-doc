@@ -70,6 +70,7 @@ ghostOptions = { indentUnit : "", indentWidth : 0, pageWidth : 120, ribbonRatio 
 
 
 qTest :: Dodo.Doc F.Directive -> String
+-- qTest = Dodo.print Dodo.plainText ghostOptions
 qTest = Dodo.print Dodo.plainText ghostOptions <<< Dodo.print (FDodo.printer markdown) Dodo.twoSpaces
 
 
