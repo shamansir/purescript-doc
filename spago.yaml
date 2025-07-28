@@ -1,0 +1,32 @@
+package:
+  dependencies:
+  - arrays
+  - bifunctors
+  - colors
+  - datetime
+  - debug
+  - dodo-printer
+  - effect
+  - either
+  - enums
+  - exceptions
+  - foldable-traversable
+  - formatters
+  - lists
+  - maybe
+  - newtype
+  - prelude
+  - strings
+  - these
+  - transformers
+  - tuples
+  name: text-formatting
+  test:
+    main: Test.Main
+    dependencies:
+      - spec
+workspace:
+  extraPackages: {}
+  packageSet:
+    registry: 65.1.0
+    # url: https://raw.githubusercontent.com/purescript/package-sets/psc-0.15.9-20230718/packages.json
